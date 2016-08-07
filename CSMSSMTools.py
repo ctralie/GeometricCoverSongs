@@ -75,11 +75,22 @@ def CSMToBinaryMutual(D, Kappa):
 
 #Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
 #computing of all of the smith waterman scores for a pair of self-similarity images
-def getCSMSmithWatermanScores(args):
-    [SSMs1, SSMs2, Kappa, Type] = args
+def getCSMSmithWatermanScores(args, doPlot = False):
+    [Features1, Features2, Kappa, Type] = args
     if Type == "Euclidean":
-        CSM = getCSM(SSMs1, SSMs2)
+        CSM = getCSM(Features1, Features2)
     elif Type == "EMD1D":
-        CSM = getCSMEMD1D(SSMs1, SSMs2)
+        CSM = getCSMEMD1D(Features1, Features2)
     DBinary = CSMToBinaryMutual(CSM, Kappa)
+    if doPlot:
+        (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
+        plt.subplot(131)
+        plt.imshow(CSM, interpolation = 'none')
+        plt.title('CSM')
+        plt.subplot(132)
+        plt.imshow(DBinary, interpolation = 'none')
+        plt.title("CSM Binary K=%g"%Kappa)
+        plt.subplot(133)
+        plt.imshow(D, interpolation = 'none')
+        plt.title("Smith Waterman Score = %g"%maxD)
     return _SequenceAlignment.swalignimpconstrained(DBinary)

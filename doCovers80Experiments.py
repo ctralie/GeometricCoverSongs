@@ -21,6 +21,7 @@ NMFCC = 20
 def getFeatures(args):
     #Unpack parameters
     (filename, BeatsPerBlock, TempoBias, FeatureParams) = args
+    print "Getting features for %s..."%filename
     DPixels = FeatureParams['DPixels']
     NCurv = FeatureParams['NCurv']
     CurvDelta = FeatureParams['CurvDelta']
@@ -81,7 +82,8 @@ def getFeatures(args):
         euclidean = np.sqrt(np.sum(euclidean**2, 1))
         geodesic[euclidean == 0] = 0
         euclidean[euclidean == 0] = 1
-        curv = geodesic/euclidean
+        #curv = geodesic/euclidean
+        curv = geodesic
         
         #Resample jump and curvature
         jump = signal.resample(jump, NJump)
@@ -183,16 +185,43 @@ def runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, Params, topsidx = [1, 25
 ## Entry points for running the experiments
 #############################################################################
 
-if __name__ == '__main__2':
-    fin = open('covers32k/list1.list', 'r')
-    files1 = [f.strip() for f in fin.readlines()]
-    print files1[0]
-    args = (files1[0], 20, 50, 60)
-    Ds = getSSMs(args)
-    sio.savemat('DsPy.mat', {'DsPy':Ds})
-
 if __name__ == '__main__':
     BeatsPerBlock = 20
     Kappa = 0.1
-    Params = {'DPixels':50, 'NCurv':500, 'NJump':500, 'D2Samples':50, 'CurvDelta':5}
+    Params = {'DPixels':50, 'NCurv':50, 'NJump':50, 'D2Samples':50, 'CurvDelta':5}
     runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, Params, topsidx = [1, 25, 50, 100])
+
+if __name__ == '__main__2':
+    BeatsPerBlock = 20
+    Kappa = 0.1
+    
+    fin = open('covers32k/list1.list', 'r')
+    files1 = [f.strip() for f in fin.readlines()]
+    fin.close()
+    fin = open('covers32k/list2.list', 'r')
+    files2 = [f.strip() for f in fin.readlines()]
+    fin.close()
+    
+    Params = {'DPixels':50, 'NCurv':50, 'NJump':50, 'D2Samples':20, 'CurvDelta':5}
+    args = (files1[75], BeatsPerBlock, 120, Params)
+    print "Getting features for %s..."%files1[75] 
+    Features1 = getFeatures(args)
+    args = (files2[75], BeatsPerBlock, 120, Params)
+    print "Getting features for %s..."%files2[75]
+    Features2 = getFeatures(args)
+    
+    plt.figure(figsize=(16, 48))
+    getCSMSmithWatermanScores([Features1['SSMs'], Features2['SSMs'], Kappa, "Euclidean"], True)
+    plt.savefig("SSMs75.svg", dpi=200, bbox_inches='tight')
+    
+    getCSMSmithWatermanScores([Features1['D2s'], Features2['D2s'], Kappa, "Euclidean"], True)
+    plt.savefig("D2Euclidean75.svg", dpi=200, bbox_inches='tight')
+
+    getCSMSmithWatermanScores([Features1['D2s'], Features2['D2s'], Kappa, "EMD1D"], True)
+    plt.savefig("D2EMD75.svg", dpi=200, bbox_inches='tight')
+
+    getCSMSmithWatermanScores([Features1['Jumps'], Features2['Jumps'], Kappa, "Euclidean"], True)
+    plt.savefig("Jumps75.svg", dpi=200, bbox_inches='tight')
+    
+    getCSMSmithWatermanScores([Features1['Curvs'], Features2['Curvs'], Kappa, "Euclidean"], True)
+    plt.savefig("Curvs75.svg", dpi=200, bbox_inches='tight')
