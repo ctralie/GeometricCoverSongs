@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-sys.path.append('../SequenceAlignment')
+sys.path.append('SequenceAlignment')
 import _SequenceAlignment
 import SequenceAlignment
-import cv2
+import scipy.misc
 
 #Get a self-similarity matrix
 def getSSM(x, DPixels, doPlot = False):
@@ -17,11 +17,11 @@ def getSSM(x, DPixels, doPlot = False):
         plt.subplot(121)
         plt.imshow(D, interpolation = 'none')
         plt.subplot(122)
-        plt.imshow(cv2.resize(D, (DPixels, DPixels)), interpolation = 'none')
+        plt.imshow(scipy.misc.imresize(D, (DPixels, DPixels)), interpolation = 'none')
         plt.show()
     if not (D.shape[0] == DPixels):
-        return cv2.resize(D, (DPixels, DPixels))
-    return D
+        return (D, scipy.misc.imresize(D, (DPixels, DPixels)))
+    return (D, D)
 
 #############################################################################
 ## Code for dealing with cross-similarity matrices
@@ -31,6 +31,19 @@ def getCSM(X, Y):
     C = np.sum(X**2, 1)[:, None] + np.sum(Y**2, 1)[None, :] - 2*X.dot(Y.T)
     C[C < 0] = 0
     return np.sqrt(C)
+
+def getCSMEMD1D(X, Y):
+    M = X.shape[0]
+    N = Y.shape[0]
+    K = X.shape[1]
+    XC = np.cumsum(X, 1)
+    YC = np.cumsum(Y, 1)
+    D = np.zeros((M, N))
+    for k in range(K):
+        xc = XC[:, k]
+        yc = YC[:, k]
+        D += np.abs(xc[:, None] - yc[None, :])
+    return D
 
 #Turn a cross-similarity matrix into a binary cross-simlarity matrix
 #If Kappa = 0, take all neighbors
@@ -63,6 +76,10 @@ def CSMToBinaryMutual(D, Kappa):
 #Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
 #computing of all of the smith waterman scores for a pair of self-similarity images
 def getCSMSmithWatermanScores(args):
-    [SSMs1, SSMs2, Kappa] = args
-    DBinary = CSMToBinaryMutual(getCSM(SSMs1, SSMs2), Kappa)
+    [SSMs1, SSMs2, Kappa, Type] = args
+    if Type == "Euclidean":
+        CSM = getCSM(SSMs1, SSMs2)
+    elif Type == "EMD1D":
+        CSM = getCSMEMD1D(SSMs1, SSMs2)
+    DBinary = CSMToBinaryMutual(CSM, Kappa)
     return _SequenceAlignment.swalignimpconstrained(DBinary)

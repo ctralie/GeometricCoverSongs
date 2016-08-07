@@ -5,8 +5,8 @@ import numpy as np
 import sys
 import scipy.io as sio
 from scipy.interpolate import interp1d
+from scipy import signal
 import time
-import cv2
 import pickle
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -14,15 +14,19 @@ from CSMSSMTools import *
 import librosa
 import subprocess
 
-sys.path.append('SequenceAlignment')
-import _SequenceAlignment
-import SequenceAlignment
 NMFCC = 20
 
 #Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
-#computing of all of the beat-synchronous self-similarity matrices
-def getSSMs(args):
-    (filename, BeatsPerBlock, DPixels, TempoBias) = args
+#computing of all of the beat-synchronous features
+def getFeatures(args):
+    #Unpack parameters
+    (filename, BeatsPerBlock, TempoBias, FeatureParams) = args
+    DPixels = FeatureParams['DPixels']
+    NCurv = FeatureParams['NCurv']
+    CurvDelta = FeatureParams['CurvDelta']
+    NJump = FeatureParams['NJump']
+    D2Samples = FeatureParams['D2Samples']
+    
     [I, J] = np.meshgrid(np.arange(DPixels), np.arange(DPixels))
     hopSize = 512
     #Step 1: Load audio and extract beat onsets
@@ -39,11 +43,14 @@ def getSSMs(args):
     X = librosa.core.logamplitude(X)
     X = np.dot(librosa.filters.dct(NMFCC, X.shape[0]), X) #Make MFCC
     
-    #Step 3: Compute SSMs in each block
+    #Step 3: Compute features in z-normalized blocks
     NBeats = len(beats)-1
     NPixels = DPixels*(DPixels-1)/2
     ND = NBeats - BeatsPerBlock
-    Y = np.zeros((ND, NPixels), dtype = 'float32')
+    SSMs = np.zeros((ND, NPixels), dtype = np.float32)
+    D2s = np.zeros((ND, D2Samples), dtype = np.float32)
+    Jumps = np.zeros((ND, NJump), dtype = np.float32)
+    Curvs = np.zeros((ND, NCurv), dtype = np.float32)
     for i in range(ND):
         i1 = beats[i]
         i2 = beats[i+BeatsPerBlock]
@@ -54,51 +61,51 @@ def getSSMs(args):
         xnorm = np.sqrt(np.sum(x**2, 1))[:, None]
         xnorm[xnorm == 0] = 1
         xn = x / xnorm
-        D = getSSM(xn, DPixels)
-        Y[i, :] = D[I < J]
-    return Y
+        
+        #Compute SSM and D2 histogram
+        (DOrig, D) = getSSM(xn, DPixels)
+        SSMs[i, :] = D[I < J]
+        [IO, JO] = np.meshgrid(np.arange(DOrig.shape[0]), np.arange(DOrig.shape[0]))
+        D2s[i, :] = np.histogram(DOrig[IO < JO], bins = D2Samples, range = (0, 2))[0]
+        D2s[i, :] = D2s[i, :]/np.sum(D2s[i, :]) #Normalize
+        
+        #Compute jump
+        jump = xn[1::, :] - xn[0:-1, :]
+        jump = np.sqrt(np.sum(jump**2, 1))
+        jump = np.concatenate(([0], jump))
+        
+        #Compute curvature approximation as ratio of geodesic to Euclidean distance
+        geodesic = np.cumsum(jump)
+        geodesic = geodesic[CurvDelta*2::] - geodesic[0:-CurvDelta*2]
+        euclidean = xn[CurvDelta*2::, :] - xn[0:-CurvDelta*2, :]
+        euclidean = np.sqrt(np.sum(euclidean**2, 1))
+        geodesic[euclidean == 0] = 0
+        euclidean[euclidean == 0] = 1
+        curv = geodesic/euclidean
+        
+        #Resample jump and curvature
+        jump = signal.resample(jump, NJump)
+        Jumps[i, :] = jump
+        curv = signal.resample(curv, NCurv)
+        Curvs[i, :] = curv
+    return {'SSMs':SSMs, 'D2s':D2s, 'Jumps':Jumps, 'Curvs':Curvs}
 
-
-#############################################################################
-## Code for running the experiments
-#############################################################################
-
-#Instead of looking in set 2 to compare to set 1, report mean rank,
-#mean reciprocal rank, and median rank of identified track
-#as well as top-01, top-10, top-25, top-50, and top-100
-def runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, DPixels, topsidx = [1, 25, 50, 100]):
-    fin = open('covers32k/list1.list', 'r')
-    files1 = [f.strip() for f in fin.readlines()]
-    fin.close()
-    fin = open('covers32k/list2.list', 'r')
-    files2 = [f.strip() for f in fin.readlines()]
-    fin.close()
-    NSongs = len(files1) #Should be 80
-    files = files1 + files2
-    N = len(files)
-    
-    #Set up the parallel pool
-    parpool = Pool(processes = 8)    
-    
-    #Precompute all SSMs for all tempo biases (can be stored in memory since dimensions are small)
-    TempoBiases = [60, 120, 180]
-    SSMs = []
-    for i in range(len(TempoBiases)):
-        Z = zip(files, [BeatsPerBlock]*N, [DPixels]*N, [TempoBiases[i]]*N)
-        SSMs.append(parpool.map(getSSMs, Z))
+def getScores(Features, CSMType):
+    N = len(Features[0])
     Scores = np.zeros((N, N))
-    for ti in range(len(TempoBiases)):
+    for ti in range(len(Features)):
         for i in range(N):
             print "Comparing song %i of %i tempo level %i"%(i, N, ti)
             for tj in range(len(TempoBiases)):
-                Z = zip([SSMs[ti][i]]*N, SSMs[tj], [Kappa]*N)
+                Z = zip([Features[ti][i]]*N, Features[tj], [Kappa]*N, [CSMType]*N)
                 s = np.zeros((2, Scores.shape[1]))
                 s[0, :] = Scores[i, :]
                 s[1, :] = parpool.map(getCSMSmithWatermanScores, Z)
                 Scores[i, :] = np.max(s, 0)
+    return Scores
 
-    sio.savemat("AllScores.mat", {"Scores":Scores})
-
+def getEvalStatistics(ScoresParam, N, NSongs, topsidx):
+    Scores = np.array(ScoresParam)
     #Compute MR, MRR, MAP, and Median Rank
     #Fill diagonal with -infinity to exclude song from comparison with self
     np.fill_diagonal(Scores, -np.inf) 
@@ -120,7 +127,56 @@ def runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, DPixels, topsidx = [1, 2
     for i in range(len(tops)):
         tops[i] = np.sum(ranks <= topsidx[i])
         print "Top-%i: %i"%(topsidx[i], tops[i])
-    return (Scores, MR, MRR, MDR, tops)
+    return (MR, MRR, MDR, tops)
+
+#############################################################################
+## Code for running the experiments
+#############################################################################
+
+#Instead of looking in set 2 to compare to set 1, report mean rank,
+#mean reciprocal rank, and median rank of identified track
+#as well as top-01, top-10, top-25, top-50, and top-100
+def runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, Params, topsidx = [1, 25, 50, 100]):
+    fin = open('covers32k/list1.list', 'r')
+    files1 = [f.strip() for f in fin.readlines()]
+    fin.close()
+    fin = open('covers32k/list2.list', 'r')
+    files2 = [f.strip() for f in fin.readlines()]
+    fin.close()
+    NSongs = len(files1) #Should be 80
+    files = files1 + files2
+    N = len(files)
+    
+    #Set up the parallel pool
+    parpool = Pool(processes = 8)    
+    #Precompute all SSMs for all tempo biases (can be stored in memory since dimensions are small)
+    TempoBiases = [60, 120, 180]
+    SSMs = []
+    D2s = []
+    Jumps = []
+    Curvs = []
+    for i in range(len(TempoBiases)):
+        Z = zip(files, [BeatsPerBlock]*N, [TempoBiases[i]]*N, [Params]*N)
+        Features = parpool.map(getFeatures, Z)
+        SSMs.append(Features['SSMs'])
+        D2s.append(Features['D2s'])
+        Jumps.append(Features['Jumps'])
+        Curvs.append(Features['Curvs'])
+    ScoresSSMs = getScores(SSMs, "Euclidean")
+    ScoresD2s = getScores(D2s, "EMD1D")
+    ScoresJumps = getScores(Jumps, "Euclidean")
+    ScoresCurvs = getScores(Curvs, "Euclidean")
+
+    sio.savemat("AllScores.mat", {"ScoresSSMs":ScoresSSMs, "ScoresD2s":ScoresD2s, "ScoresJumps":ScoresJumps, "ScoresCurvs":ScoresCurvs})
+
+    print("Scores SSMs")
+    getEvalStatistics(ScoresSSMs, N, NSongs, topsidx)
+    print("Scores D2s")
+    getEvalStatistics(ScoresD2s, N, NSongs, topsidx)
+    print("Scores Jumps")
+    getEvalStatistics(ScoresJumps, N, NSongs, topsidx)
+    print("Scores Curvs")
+    getEvalStatistics(ScoresCurvs, N, NSongs, topsidx)
 
 
 #############################################################################
@@ -138,4 +194,5 @@ if __name__ == '__main__2':
 if __name__ == '__main__':
     BeatsPerBlock = 20
     Kappa = 0.1
-    (Scores, MR, MRR, MDR, tops) = runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, 50, topsidx = [1, 25, 50, 100])
+    Params = {'DPixels':50, 'NCurv':500, 'NJump':500, 'D2Samples':50, 'CurvDelta':5}
+    runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, Params, topsidx = [1, 25, 50, 100])
