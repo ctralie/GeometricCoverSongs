@@ -9,19 +9,32 @@ from scipy import signal
 import time
 import pickle
 import matplotlib.pyplot as plt
-from multiprocessing import Pool
+from multiprocessing import Pool as PPool
 from CSMSSMTools import *
 import librosa
 import subprocess
 
+import essentia
+from essentia import Pool, array
+from essentia.standard import *
+
 NMFCC = 20
+
+#Call Essentia's implementation of Degara's technique
+def getDegaraOnsets(XAudio, Fs, hopSize):
+    X = essentia.array(XAudio)
+    b = BeatTrackerDegara()
+    beats = b(X)
+    tempo = 60/np.mean(beats[1::] - beats[0:-1])
+    beats = np.array(np.round(beats*Fs/hopSize), dtype=np.int64)
+    return (tempo, beats)
 
 #Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
 #computing of all of the beat-synchronous features
 def getFeatures(args):
     #Unpack parameters
     (filename, BeatsPerBlock, TempoBias, FeatureParams) = args
-    print "Getting features for %s..."%filename
+    print("Getting features for %s..."%filename)
     DPixels = FeatureParams['DPixels']
     NCurv = FeatureParams['NCurv']
     CurvDelta = FeatureParams['CurvDelta']
@@ -34,7 +47,11 @@ def getFeatures(args):
     path = "covers32k/" + filename + ".ogg"
     XAudio, Fs = librosa.load(path)
     XAudio = librosa.core.to_mono(XAudio)
-    (tempo, beats) = librosa.beat.beat_track(XAudio, Fs, start_bpm = TempoBias, hop_length = hopSize)# hop_length = self.hopSize)
+    try:
+        (tempo, beats) = librosa.beat.beat_track(XAudio, Fs, start_bpm = TempoBias, hop_length = hopSize)
+    except:
+        print("Falling back to Degara for beat tracking...")
+        (tempo, beats) = getDegaraOnsets(XAudio, Fs, hopSize)
     
     #Step 2: Compute Mel-Spaced log STFTs
     winSize = int(np.round((60.0/tempo)*Fs))
@@ -78,11 +95,11 @@ def getFeatures(args):
         #Compute curvature approximation as ratio of geodesic to Euclidean distance
         geodesic = np.cumsum(jump)
         geodesic = geodesic[CurvDelta*2::] - geodesic[0:-CurvDelta*2]
-        euclidean = xn[CurvDelta*2::, :] - xn[0:-CurvDelta*2, :]
-        euclidean = np.sqrt(np.sum(euclidean**2, 1))
-        geodesic[euclidean == 0] = 0
-        euclidean[euclidean == 0] = 1
-        #curv = geodesic/euclidean
+#        euclidean = xn[CurvDelta*2::, :] - xn[0:-CurvDelta*2, :]
+#        euclidean = np.sqrt(np.sum(euclidean**2, 1))
+#        geodesic[euclidean == 0] = 0
+#        euclidean[euclidean == 0] = 1
+#        curv = geodesic/euclidean
         curv = geodesic
         
         #Resample jump and curvature
@@ -93,12 +110,13 @@ def getFeatures(args):
     return {'SSMs':SSMs, 'D2s':D2s, 'Jumps':Jumps, 'Curvs':Curvs}
 
 def getScores(Features, CSMType):
+    parpool = PPool(processes = 8)  
     N = len(Features[0])
     Scores = np.zeros((N, N))
     for ti in range(len(Features)):
         for i in range(N):
-            print "Comparing song %i of %i tempo level %i"%(i, N, ti)
-            for tj in range(len(TempoBiases)):
+            print("Comparing song %i of %i tempo level %i"%(i, N, ti))
+            for tj in range(len(Features)):
                 Z = zip([Features[ti][i]]*N, Features[tj], [Kappa]*N, [CSMType]*N)
                 s = np.zeros((2, Scores.shape[1]))
                 s[0, :] = Scores[i, :]
@@ -115,20 +133,20 @@ def getEvalStatistics(ScoresParam, N, NSongs, topsidx):
     ranks = np.zeros(N)
     for i in range(N):
         cover = (i+NSongs)%N #The index of the correct song
-        print "%i, %i"%(i, cover)
+        print("%i, %i"%(i, cover))
         for k in range(N):
             if idx[i, k] == cover:
                 ranks[i] = k+1
                 break
-    print ranks
+    print(ranks)
     MR = np.mean(ranks)
     MRR = 1.0/N*(np.sum(1.0/ranks))
     MDR = np.median(ranks)
-    print "MR = %g\nMRR = %g\nMDR = %g\n"%(MR, MRR, MDR)
+    print("MR = %g\nMRR = %g\nMDR = %g\n"%(MR, MRR, MDR))
     tops = np.zeros(len(topsidx))
     for i in range(len(tops)):
         tops[i] = np.sum(ranks <= topsidx[i])
-        print "Top-%i: %i"%(topsidx[i], tops[i])
+        print("Top-%i: %i"%(topsidx[i], tops[i]))
     return (MR, MRR, MDR, tops)
 
 #############################################################################
@@ -150,7 +168,7 @@ def runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, Params, topsidx = [1, 25
     N = len(files)
     
     #Set up the parallel pool
-    parpool = Pool(processes = 8)    
+    #parpool = Pool(processes = 8)    
     #Precompute all SSMs for all tempo biases (can be stored in memory since dimensions are small)
     TempoBiases = [60, 120, 180]
     SSMs = []
@@ -158,12 +176,19 @@ def runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, Params, topsidx = [1, 25
     Jumps = []
     Curvs = []
     for i in range(len(TempoBiases)):
-        Z = zip(files, [BeatsPerBlock]*N, [TempoBiases[i]]*N, [Params]*N)
-        Features = parpool.map(getFeatures, Z)
-        SSMs.append(Features['SSMs'])
-        D2s.append(Features['D2s'])
-        Jumps.append(Features['Jumps'])
-        Curvs.append(Features['Curvs'])
+        [thisSSMs, thisD2s, thisJumps, thisCurvs] = [[], [], [], []]
+        #Z = zip(files, [BeatsPerBlock]*N, [TempoBiases[i]]*N, [Params]*N)
+        #Features = parpool.map(getFeatures, Z)
+        for k in range(len(files)):
+            Features = getFeatures((files[k], BeatsPerBlock, TempoBiases[i], Params))
+            thisSSMs.append(Features['SSMs'])
+            thisD2s.append(Features['D2s'])
+            thisJumps.append(Features['Jumps'])
+            thisCurvs.append(Features['Curvs'])
+        SSMs.append(thisSSMs)
+        D2s.append(thisD2s)
+        Jumps.append(thisJumps)
+        Curvs.append(thisCurvs)
     ScoresSSMs = getScores(SSMs, "Euclidean")
     ScoresD2s = getScores(D2s, "EMD1D")
     ScoresJumps = getScores(Jumps, "Euclidean")
@@ -171,13 +196,13 @@ def runCovers80ExperimentAllSongs(BeatsPerBlock, Kappa, Params, topsidx = [1, 25
 
     sio.savemat("AllScores.mat", {"ScoresSSMs":ScoresSSMs, "ScoresD2s":ScoresD2s, "ScoresJumps":ScoresJumps, "ScoresCurvs":ScoresCurvs})
 
-    print("Scores SSMs")
+    print("\n\nScores SSMs")
     getEvalStatistics(ScoresSSMs, N, NSongs, topsidx)
-    print("Scores D2s")
+    print("\n\nScores D2s")
     getEvalStatistics(ScoresD2s, N, NSongs, topsidx)
-    print("Scores Jumps")
+    print("\n\nScores Jumps")
     getEvalStatistics(ScoresJumps, N, NSongs, topsidx)
-    print("Scores Curvs")
+    print("\n\nScores Curvs")
     getEvalStatistics(ScoresCurvs, N, NSongs, topsidx)
 
 
@@ -194,6 +219,7 @@ if __name__ == '__main__':
 if __name__ == '__main__2':
     BeatsPerBlock = 20
     Kappa = 0.1
+    TempoBias = 60
     
     fin = open('covers32k/list1.list', 'r')
     files1 = [f.strip() for f in fin.readlines()]
@@ -202,26 +228,27 @@ if __name__ == '__main__2':
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
     
+    index = 4#75
     Params = {'DPixels':50, 'NCurv':50, 'NJump':50, 'D2Samples':20, 'CurvDelta':5}
-    args = (files1[75], BeatsPerBlock, 120, Params)
-    print "Getting features for %s..."%files1[75] 
+    args = (files1[index], BeatsPerBlock, TempoBias, Params)
+    print("Getting features for %s..."%files1[index]) 
     Features1 = getFeatures(args)
-    args = (files2[75], BeatsPerBlock, 120, Params)
-    print "Getting features for %s..."%files2[75]
+    args = (files2[index], BeatsPerBlock, TempoBias, Params)
+    print("Getting features for %s..."%files2[index])
     Features2 = getFeatures(args)
     
     plt.figure(figsize=(16, 48))
     getCSMSmithWatermanScores([Features1['SSMs'], Features2['SSMs'], Kappa, "Euclidean"], True)
-    plt.savefig("SSMs75.svg", dpi=200, bbox_inches='tight')
+    plt.savefig("SSMs%i.svg"%index, dpi=200, bbox_inches='tight')
     
     getCSMSmithWatermanScores([Features1['D2s'], Features2['D2s'], Kappa, "Euclidean"], True)
-    plt.savefig("D2Euclidean75.svg", dpi=200, bbox_inches='tight')
+    plt.savefig("D2Euclidean%i.svg"%index, dpi=200, bbox_inches='tight')
 
     getCSMSmithWatermanScores([Features1['D2s'], Features2['D2s'], Kappa, "EMD1D"], True)
-    plt.savefig("D2EMD75.svg", dpi=200, bbox_inches='tight')
+    plt.savefig("D2EMD%i.svg"%index, dpi=200, bbox_inches='tight')
 
     getCSMSmithWatermanScores([Features1['Jumps'], Features2['Jumps'], Kappa, "Euclidean"], True)
-    plt.savefig("Jumps75.svg", dpi=200, bbox_inches='tight')
+    plt.savefig("Jumps%i.svg"%index, dpi=200, bbox_inches='tight')
     
     getCSMSmithWatermanScores([Features1['Curvs'], Features2['Curvs'], Kappa, "Euclidean"], True)
-    plt.savefig("Curvs75.svg", dpi=200, bbox_inches='tight')
+    plt.savefig("Curvs%i.svg"%index, dpi=200, bbox_inches='tight')
