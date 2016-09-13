@@ -43,10 +43,11 @@ def getScaleSpaceImages(X, MaxOrder, sigmas):
 #A class for doing animation of curvature scale space images
 #for 2D/3D curves
 class CSSAnimator(animation.FuncAnimation):
-    def __init__(self, fig, X, sigmas):
+    def __init__(self, fig, X, sigmas, filename, ImageRes = 300):
         self.fig = fig
         self.X = X
         self.sigmas = sigmas
+        self.ImageRes = ImageRes
         self.SSImage = np.zeros((len(sigmas), X.shape[0]))
         
         ax1 = fig.add_subplot(221)
@@ -60,7 +61,7 @@ class CSSAnimator(animation.FuncAnimation):
         ax1.set_title('Original Curve')
         
         #Smoothed Curve
-        self.smoothCurve = ax2.scatter([], [], [], c=[])
+        self.smoothCurve = ax2.scatter([0, 0], [0, 0], [1, 1])
         ax2.hold(True)
         self.smoothCurveInfl = ax2.scatter([], [], 20, 'r')
         ax2.set_xlim([np.min(X[:, 0]), np.max(X[:, 0])])
@@ -70,10 +71,19 @@ class CSSAnimator(animation.FuncAnimation):
         self.curvMagPlot, = ax3.plot([])
         
         #Scale space image plot
-        self.ssImagePlot = ax4.imshow(self.SSImage, interpolation = 'none', aspect = 'auto')
-        
+        #I have to hack this so the colormap is scaled properly
+        initial = np.zeros((ImageRes, ImageRes))
+        initial[0] = 1
+        self.ssImagePlot = ax4.imshow(initial, interpolation = 'none', aspect = 'auto', cmap=plt.get_cmap('jet'))
         #Setup animation thread
         animation.FuncAnimation.__init__(self, fig, func = self._draw_frame, frames = len(sigmas), interval = 50)
+        
+        #Write movie
+        FFMpegWriter = animation.writers['ffmpeg']
+        metadata = dict(title='Movie Test', artist='Matplotlib',
+                        comment='Movie support!')
+        writer = FFMpegWriter(fps=15, metadata=metadata, bitrate = 30000)
+        self.save("out.mp4", writer = writer)
     
     def _draw_frame(self, i):
         print i
@@ -87,7 +97,7 @@ class CSSAnimator(animation.FuncAnimation):
         CurvMag = np.sqrt(np.sum(Curv**2, 1)).flatten()
         self.curvMagPlot.set_xdata(np.arange(len(CurvMag)))
         self.curvMagPlot.set_ydata(CurvMag)
-        if i == 0:
+        if i < 4:
             self.ax3.set_xlim([0, len(CurvMag)])
             self.ax3.set_ylim([0, np.max(CurvMag)])
         
@@ -100,7 +110,7 @@ class CSSAnimator(animation.FuncAnimation):
         
         self.SSImage[-i-1, Crossings[2]] = 1
         #Do some rudimentary anti-aliasing
-        SSImageRes = scipy.misc.imresize(self.SSImage, [300, 300])
+        SSImageRes = scipy.misc.imresize(self.SSImage, [self.ImageRes, self.ImageRes])
         SSImageRes[SSImageRes > 0] = 1
         SSImageRes = 1-SSImageRes
         self.ssImagePlot.set_array(SSImageRes)
@@ -108,13 +118,8 @@ class CSSAnimator(animation.FuncAnimation):
 if __name__ == '__main__':
     X = sio.loadmat('hmm_gpd/plane_data/Class1_Sample2.mat')['x']
     X = np.array(X, dtype=np.float32)
-    sigmas = np.linspace(1, 200, 200)
-    
-    FFMpegWriter = animation.writers['ffmpeg']
-    metadata = dict(title='Movie Test', artist='Matplotlib',
-                    comment='Movie support!')
-    writer = FFMpegWriter(fps=15, metadata=metadata)
+    sigmas = np.linspace(1, 300, 300)
     
     fig = plt.figure()
-    ani = CSSAnimator(fig, X, sigmas)
-    ani.save("out.mp4", writer = writer)
+    ani = CSSAnimator(fig, X, sigmas, "out.mp4")
+    
