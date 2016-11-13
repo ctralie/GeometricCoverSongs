@@ -90,10 +90,10 @@ def getCSMSmithWatermanScores(args, doPlot = False):
     [Features1, Features2, Kappa, Type] = args
     if Type == "Euclidean":
         CSM = getCSM(Features1, Features2)
+    elif Type == "Cosine":
+        CSM = getCSMCosine(Features1, Features2)
     elif Type == "EMD1D":
         CSM = getCSMEMD1D(Features1, Features2)
-    elif Type == "COSINE":
-        CSM = getCSMCosine(Features1, Features2)
     DBinary = CSMToBinaryMutual(CSM, Kappa)
     if doPlot:
         (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)

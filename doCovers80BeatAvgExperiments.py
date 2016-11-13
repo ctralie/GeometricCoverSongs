@@ -1,3 +1,5 @@
+#Code that was primarily used to test EchoNest Features
+
 import numpy as np
 import sys
 import scipy.io as sio
@@ -130,7 +132,7 @@ def getTimbralBeatAverageDelay(args):
 #############################################################################
 
 #Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
-#computing of all of the beat-synchronous self-similarity matrices 
+#computing of all of the beat-synchronous self-similarity matrices
 #This version averages the Timbre and Pitch features within each beat
 def getSSMsBeatAverage(args):
     (filename, BeatsPerBlock, DPixels) = args
@@ -175,9 +177,9 @@ def getSSMsInterp(args):
     NPixels = DPixels*(DPixels-1)/2
     data = pickle.load(open("covers32k/%s.txt"%filename))
     tsbts = np.array([s['start'] for s in data['beats']])
-    #Make the new sampling interval the mean of the average beat length 
+    #Make the new sampling interval the mean of the average beat length
     #divided by the upsample factor
-    dt = np.mean(tsbts[1:] - tsbts[0:-1])/upfac 
+    dt = np.mean(tsbts[1:] - tsbts[0:-1])/upfac
     (Chroma, Timbre, tsnew) = getInterpolatedFeatures(data, dt)
     #Figure out the indices for each beat interval
     NBeats = len(tsbts)
@@ -187,7 +189,7 @@ def getSSMsInterp(args):
         while idx < len(tsnew) and tsnew[idx] < tsbts[i]:
             idx += 1
         beatidxs[i] = idx
-    
+
     #Skip chroma for now, only deal with timbre
     X = Timbre.T
     ND = NBeats - BeatsPerBlock
@@ -222,16 +224,16 @@ def runCovers80Experiment(BeatsPerBlock, Kappa):
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
     N = len(files1)
-    
+
     #Set up the parallel pool
-    parpool = Pool(processes = 8)    
-    
+    parpool = Pool(processes = 8)
+
     #Precompute all SSMs (can be stored in memory since dimensions are small)
     Z = zip(files1, [BeatsPerBlock]*len(files1), [BeatsPerBlock]*len(files1))
     SSMs1 = parpool.map(getSSMsBeatAverage, Z)
     Z = zip(files2, [BeatsPerBlock]*len(files2), [BeatsPerBlock]*len(files2))
     SSMs2 = parpool.map(getSSMsBeatAverage, Z)
-    
+
     Scores = np.zeros((N, N))
     for i in range(N):
         print "Comparing song %i of %i"%(i, N)
@@ -252,10 +254,10 @@ def runCovers80ExperimentAllSongs(BeatsPerBlock, PixelDim, Kappa, topsidx = [1, 
     NSongs = len(files1) #Should be 80
     files = files1 + files2
     N = len(files)
-    
+
     #Set up the parallel pool
-    parpool = Pool(processes = 8)    
-    
+    parpool = Pool(processes = 8)
+
     #Precompute all SSMs (can be stored in memory since dimensions are small)
     Z = zip(files, [BeatsPerBlock]*N, [PixelDim]*N)
     SSMs = parpool.map(getSSMsBeatAverage, Z)
@@ -269,7 +271,7 @@ def runCovers80ExperimentAllSongs(BeatsPerBlock, PixelDim, Kappa, topsidx = [1, 
 
     #Compute MR, MRR, MAP, and Median Rank
     #Fill diagonal with infinity to exclude song from comparison with self
-    np.fill_diagonal(Scores, -np.inf) 
+    np.fill_diagonal(Scores, -np.inf)
     idx = np.argsort(-Scores, 1) #Sort row by row in descending order of score
     ranks = np.zeros(N)
     for i in range(N):
@@ -308,16 +310,16 @@ def saveFeatures(BeatsPerBlock, PixelDim):
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
     N = len(files1)
-    
+
     #Set up the parallel pool
-    parpool = Pool(processes = 8)    
-    
+    parpool = Pool(processes = 8)
+
     #Precompute all SSMs (can be stored in memory since dimensions are small)
     Z = zip(files1, [BeatsPerBlock]*len(files1), [PixelDim]*len(files1))
     SSMs1 = parpool.map(getSSMsBeatAverage, Z)
     Z = zip(files2, [BeatsPerBlock]*len(files2), [PixelDim]*len(files2))
     SSMs2 = parpool.map(getSSMsBeatAverage, Z)
-    
+
     fout1 = open("Covers80Files1_%i_%i.txt"%(BeatsPerBlock, PixelDim), 'w')
     fout1.write("%i\n"%(PixelDim*(PixelDim-1)/2))
     for i in range(len(SSMs1)):
@@ -325,7 +327,7 @@ def saveFeatures(BeatsPerBlock, PixelDim):
         fout1.write(files1[i] + "\n")
         writeArray(fout1, SSMs)
     fout1.close()
-    
+
     fout2 = open("Covers80Files2_%i_%i.txt"%(BeatsPerBlock, PixelDim), 'w')
     fout2.write("%i\n"%(PixelDim*(PixelDim-1)/2))
     for i in range(len(SSMs2)):
@@ -372,7 +374,7 @@ if __name__ == "__main__":
     fin = open('covers32k/list2.list', 'r')
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
-    
+
     idx = 1
     print files1[idx]
     print files2[idx]
@@ -396,7 +398,7 @@ if __name__ == "__main__":
 
 #Testing parallel processing
 if __name__ == '__main__2':
-    parpool = Pool(processes = 8)  
+    parpool = Pool(processes = 8)
     fin = open('covers32k/list1.list', 'r')
     files1 = [f.strip() for f in fin.readlines()]
     files1 = files1[0:5]
