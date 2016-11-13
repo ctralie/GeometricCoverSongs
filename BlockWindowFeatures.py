@@ -21,7 +21,11 @@ def getBlockWindowFeatures(args):
     (XAudio, Fs, tempo, beats, hopSize, FeatureParams) = args
     NBeats = len(beats)-1
     winSize = int(np.round((60.0/tempo)*Fs))
+    Features = {}
 
+    #########################
+    #  MFCC-Based Features  #
+    #########################
     #Step 1: Determine which features have been specified and allocate space
     usingMFCC = False
     [MFCCSamplesPerBlock, DPixels, NGeodesic, NJump, NCurv, NTors, D2Samples] = [-1]*7
@@ -31,9 +35,12 @@ def getBlockWindowFeatures(args):
     NMFCC = 20
     MFCCBeatsPerBlock = 20
     NMFCCBlocks = 0
-    Features = {}
+    lifterexp = 0.6
     if 'NMFCC' in FeatureParams:
         NMFCC = FeatureParams['NMFCC']
+        usingMFCC = True
+    if 'lifterexp' in FeatureParams:
+        lifterexp = FeatureParams['lifterexp']
         usingMFCC = True
     if 'MFCCBeatsPerBlock' in FeatureParams:
         MFCCBeatsPerBlock = FeatureParams['MFCCBeatsPerBlock']
@@ -80,7 +87,7 @@ def getBlockWindowFeatures(args):
     #Step 3: Compute Mel-Spaced log STFTs
     XMFCC = np.array([])
     if usingMFCC:
-        XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = 0.6, NMFCC = NMFCC)
+        XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
 
     #Step 4: Compute MFCC-based features in z-normalized blocks
     for i in range(NMFCCBlocks):
@@ -140,8 +147,17 @@ def getBlockWindowFeatures(args):
             jump = np.sqrt(np.sum(curvs[1]**2, 1))
             Features['Jumps'][i, :] = signal.resample(jump, NJump)
 
-        #[jump, curv, tors] = [jump/np.linalg.norm(jump), curv/np.linalg.norm(curv), tors/np.linalg.norm(tors)]
-    print "Features Computed", Features.keys()
+    ###########################
+    #  Chroma-Based Features  #
+    ###########################
+    #Step 1: Figure out which features are requested and allocate space
+    usingChroma = False
+    NChromaBlocks = 0
+    ChromaBeatsPerBlock = 20
+    if 'ChromaBeatsPerBlock' in FeatureParams:
+        ChromaBeatsPerBlock = FeatureParams['ChromaBeatsPerBlock']
+        NChromaBlocks = NBeats - ChromaBeatsPerBlock
+
     return Features
 
 def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix):

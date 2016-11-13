@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import sys
 import librosa
 import scipy.misc
+from multiprocessing import Pool as PPool
+from CSMSSMTools import *
 
 def getAudio(filename):
     XAudio, Fs = librosa.load(filename)
@@ -48,6 +50,9 @@ def getMFCCs(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC
     return X
 
 def getHPCPEssentia(XAudio, Fs, winSize, hopSize):
+    import essentia
+    from essentia import Pool, array
+    import essentia.standard as ess
     spectrum = ess.Spectrum()
     window = ess.Windowing(size=winSize, type='hann')
     spectralPeaks = ess.SpectralPeaks()

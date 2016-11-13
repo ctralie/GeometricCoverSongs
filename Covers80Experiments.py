@@ -15,7 +15,6 @@ def getEvalStatistics(ScoresParam, N, NSongs, topsidx):
     ranks = np.zeros(N)
     for i in range(N):
         cover = (i+NSongs)%N #The index of the correct song
-        print("%i, %i"%(i, cover))
         for k in range(N):
             if idx[i, k] == cover:
                 ranks[i] = k+1
@@ -29,7 +28,13 @@ def getEvalStatistics(ScoresParam, N, NSongs, topsidx):
     for i in range(len(tops)):
         tops[i] = np.sum(ranks <= topsidx[i])
         print("Top-%i: %i"%(topsidx[i], tops[i]))
-    #TODO: Add covers80 score
+
+    #Covers80 score
+    Scores = Scores[0:NSongs, NSongs+1::]
+    idx = np.argsort(-Scores, 1)
+    score = np.sum(idx == np.arange(len(idx)))
+    print("Covers80 Score: %i / %i"%(score, NSongs))
+
     return (MR, MRR, MDR, tops)
 
 #############################################################################
@@ -72,6 +77,8 @@ def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, 
 
     AllFeatures = getCovers80Features(FeatureParams, hopSize, TempoBiases)
     Results = {'Params':FeatureParams, 'hopSize':hopSize, 'TempoBiases':TempoBiases, 'Kappa':Kappa, 'CSMTypes':CSMTypes}
+    NSongs = 80
+    N = NSongs*2
     for FeatureName in AllFeatures:
         CSMType = 'Euclidean'
         if FeatureName in CSMTypes:
@@ -87,17 +94,19 @@ def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, 
 ## Entry points for running the experiments
 #############################################################################
 
-if __name__ == '__main__2':
+if __name__ == '__main__':
     Kappa = 0.1
     hopSize = 512
     TempoBiases = [60, 120, 180]
 
-    FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':40, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10}
+    #FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':40, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10}
+
+    FeatureParams = {'DPixels':50, 'D2Samples':50, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10}
 
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'D2s':'EMD1D'}
     doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat")
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     Kappa = 0.1
     hopSize = 512
     TempoBias1 = 120
