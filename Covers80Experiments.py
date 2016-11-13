@@ -87,8 +87,7 @@ def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, 
 ## Entry points for running the experiments
 #############################################################################
 
-if __name__ == '__main__':
-    BeatsPerBlock = 20
+if __name__ == '__main__2':
     Kappa = 0.1
     hopSize = 512
     TempoBiases = [60, 120, 180]
@@ -98,45 +97,26 @@ if __name__ == '__main__':
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'D2s':'EMD1D'}
     doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat")
 
-if __name__ == '__main__2':
-    BeatsPerBlock = 12
+if __name__ == '__main__':
     Kappa = 0.1
-    TempoBias = 120
+    hopSize = 512
+    TempoBias1 = 120
+    TempoBias2 = 120
 
-    #index = 75
-    #fin = open('covers32k/list1.list', 'r')
-    #files1 = [f.strip() for f in fin.readlines()]
-    #fin.close()
-    #fin = open('covers32k/list2.list', 'r')
-    #files2 = [f.strip() for f in fin.readlines()]
-    #fin.close()
-    #filename1 = files1[index]
-    #filename2 = files2[index]
-    filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
-    filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'
+    index = 75
+    fin = open('covers32k/list1.list', 'r')
+    files1 = [f.strip() for f in fin.readlines()]
+    fin.close()
+    fin = open('covers32k/list2.list', 'r')
+    files2 = [f.strip() for f in fin.readlines()]
+    fin.close()
+    filename1 = "covers32k/" + files1[index] + ".mp3"
+    filename2 = "covers32k/" + files2[index] + ".mp3"
+    #filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
+    #filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'
 
-    Params = {'DPixels':200, 'NCurv':500, 'NJump':50, 'D2Samples':20, 'CurvDelta':5}
-    args = (filename1, BeatsPerBlock, 180, Params)
-    Features1 = getFeatures(args)
-    args = (filename2, BeatsPerBlock, 180, Params)
-    Features2 = getFeatures(args)
-    CSM = getCSM(Features1['SSMs'], Features2['SSMs'])
-    print "CSM.shape = ", CSM.shape
+    FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':40, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10}
 
-    sio.savemat('CSM.mat', {'R':CSM})
+    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'D2s':'EMD1D'}
 
-    plt.figure(figsize=(16, 48))
-    getCSMSmithWatermanScores([Features1['SSMs'], Features2['SSMs'], Kappa, "Euclidean"], True)
-    plt.savefig("SSMs%i.svg"%index, dpi=200, bbox_inches='tight')
-
-    getCSMSmithWatermanScores([Features1['D2s'], Features2['D2s'], Kappa, "Euclidean"], True)
-    plt.savefig("D2Euclidean%i.svg"%index, dpi=200, bbox_inches='tight')
-
-    getCSMSmithWatermanScores([Features1['D2s'], Features2['D2s'], Kappa, "EMD1D"], True)
-    plt.savefig("D2EMD%i.svg"%index, dpi=200, bbox_inches='tight')
-
-    getCSMSmithWatermanScores([Features1['Jumps'], Features2['Jumps'], Kappa, "Euclidean"], True)
-    plt.savefig("Jumps%i.svg"%index, dpi=200, bbox_inches='tight')
-
-    getCSMSmithWatermanScores([Features1['Curvs'], Features2['Curvs'], Kappa, "Euclidean"], True)
-    plt.savefig("Curvs%i.svg"%index, dpi=200, bbox_inches='tight')
+    compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, "Covers80%i"%index)

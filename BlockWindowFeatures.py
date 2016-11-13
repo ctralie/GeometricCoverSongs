@@ -133,13 +133,35 @@ def getBlockWindowFeatures(args):
             curvs = getCurvVectors(xn, MaxOrder, CurvSigma)
             if MaxOrder > 2:
                 tors = np.sqrt(np.sum(curvs[3]**2, 1))
-                Features['Tors'] = signal.resample(tors, NTors)
+                Features['Tors'][i, :] = signal.resample(tors, NTors)
             if MaxOrder > 1:
                 curv = np.sqrt(np.sum(curvs[2]**2, 1))
-                Features['Curvs'] = signal.resample(curv, NCurv)
+                Features['Curvs'][i, :] = signal.resample(curv, NCurv)
             jump = np.sqrt(np.sum(curvs[1]**2, 1))
-            Features['Jumps'] = signal.resample(jump, NJump)
+            Features['Jumps'][i, :] = signal.resample(jump, NJump)
 
         #[jump, curv, tors] = [jump/np.linalg.norm(jump), curv/np.linalg.norm(curv), tors/np.linalg.norm(tors)]
     print "Features Computed", Features.keys()
     return Features
+
+def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix):
+    print "Getting features for %s..."%filename1
+    (XAudio, Fs) = getAudio(filename1)
+    (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize)
+    Features1 = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
+
+    print "Getting features for %s..."%filename2
+    (XAudio, Fs) = getAudio(filename2)
+    (tempo, beats) = getBeats(XAudio, Fs, TempoBias2, hopSize)
+    Features2 = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
+
+    Results = {'filename1':filename1, 'filename2':filename2, 'TempoBias1':TempoBias1, 'TempoBias2':TempoBias2, 'hopSize':hopSize, 'FeatureParams':FeatureParams, 'CSMTypes':CSMTypes, 'Kappa':Kappa}
+    plt.figure(figsize=(16, 48))
+    for FeatureName in Features1:
+        CSM = getCSM(Features1[FeatureName], Features2[FeatureName])
+        Results['CSM%s'%FeatureName] = CSM
+
+        getCSMSmithWatermanScores([Features1[FeatureName], Features2[FeatureName], Kappa, CSMTypes[FeatureName]], True)
+        plt.savefig("%s_SSMs_%s.svg"%(fileprefix, FeatureName), dpi=200, bbox_inches='tight')
+
+    sio.savemat("%s.mat"%fileprefix, Results)

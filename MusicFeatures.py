@@ -1,9 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-import essentia
-from essentia import Pool, array
-import essentia.standard as ess
 import librosa
 import scipy.misc
 
@@ -22,6 +19,8 @@ def getBeats(XAudio, Fs, TempoBias, hopSize):
 
 #Call Essentia's implementation of Degara's technique
 def getDegaraOnsets(XAudio, Fs, hopSize):
+    from essentia import Pool, array
+    import essentia.standard as ess
     X = array(XAudio)
     b = ess.BeatTrackerDegara()
     beats = b(X)
