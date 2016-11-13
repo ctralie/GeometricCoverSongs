@@ -45,6 +45,15 @@ def getCSMEMD1D(X, Y):
         D += np.abs(xc[:, None] - yc[None, :])
     return D
 
+def getCSMCosine(X, Y):
+    XNorm = np.sqrt(np.sum(X**2, 1))
+    XNorm[XNorm == 0] = 1
+    YNorm = np.sqrt(np.sum(Y**2, 1))
+    YNorm[YNorm == 0] = 1
+    D = (X/XNorm[:, None]).dot((Y/YNorm[:, None]).T)
+    D = 1 - D #Make sure distance 0 is the same and distance 2 is the most different
+    return D
+
 #Turn a cross-similarity matrix into a binary cross-simlarity matrix
 #If Kappa = 0, take all neighbors
 #If Kappa < 1 it is the fraction of mutual neighbors to consider
@@ -74,13 +83,17 @@ def CSMToBinaryMutual(D, Kappa):
     return B1*B2.T
 
 #Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
-#computing of all of the smith waterman scores for a pair of self-similarity images
+#computing of all of the smith waterman scores for a pair of songs.
+#Features1 and Features2 are Mxk and Nxk matrices of features, respectively
+#The type of cross-similarity can also be specified
 def getCSMSmithWatermanScores(args, doPlot = False):
     [Features1, Features2, Kappa, Type] = args
     if Type == "Euclidean":
         CSM = getCSM(Features1, Features2)
     elif Type == "EMD1D":
         CSM = getCSMEMD1D(Features1, Features2)
+    elif Type == "COSINE":
+        CSM = getCSMCosine(Features1, Features2)
     DBinary = CSMToBinaryMutual(CSM, Kappa)
     if doPlot:
         (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
