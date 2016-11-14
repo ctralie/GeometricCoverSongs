@@ -30,8 +30,8 @@ def getEvalStatistics(ScoresParam, N, NSongs, topsidx):
         print("Top-%i: %i"%(topsidx[i], tops[i]))
 
     #Covers80 score
-    Scores = Scores[0:NSongs, NSongs+1::]
-    idx = np.argsort(-Scores, 1)
+    Scores = Scores[0:NSongs, NSongs::]
+    idx = np.argmax(-Scores, 1)
     score = np.sum(idx == np.arange(len(idx)))
     print("Covers80 Score: %i / %i"%(score, NSongs))
 
@@ -57,36 +57,41 @@ def getCovers80Features(FeatureParams, hopSize, TempoBiases):
     #parpool = Pool(processes = 8)
     #Precompute all SSMs for all tempo biases (can be stored in memory since dimensions are small)
     AllFeatures = {}
+    OtherFeatures = []
+    for k in range(len(TempoBiases)):
+        OtherFeatures.append([])
     for filename in files:
         (XAudio, Fs) = getAudio(filename)
         print "Getting features for %s..."%filename
         for k in range(len(TempoBiases)):
             (tempo, beats) = getBeats(XAudio, Fs, TempoBiases[k], hopSize)
             #(XAudio, Fs, hopSize, beats, tempo, BeatsPerBlock, FeatureParams)
-            Features = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
+            (Features, Other) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
             for FeatureName in Features:
                 if not FeatureName in AllFeatures:
                     AllFeatures[FeatureName] = []
-                    for k in range(len(TempoBiases)):
+                    for a in range(len(TempoBiases)):
                         AllFeatures[FeatureName].append([])
                 AllFeatures[FeatureName][k].append(Features[FeatureName])
-    return AllFeatures
+            OtherFeatures[k].append(Other)
+    return (AllFeatures, OtherFeatures)
 
 def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, matfilename):
     #What types of cross-similarity should be used to compare different blocks for different feature types
 
-    AllFeatures = getCovers80Features(FeatureParams, hopSize, TempoBiases)
+    (AllFeatures, OtherFeatures) = getCovers80Features(FeatureParams, hopSize, TempoBiases)
     Results = {'Params':FeatureParams, 'hopSize':hopSize, 'TempoBiases':TempoBiases, 'Kappa':Kappa, 'CSMTypes':CSMTypes}
     NSongs = 80
     N = NSongs*2
+    print "Scoring ", AllFeatures.keys()
     for FeatureName in AllFeatures:
         CSMType = 'Euclidean'
         if FeatureName in CSMTypes:
             CSMType = CSMTypes[FeatureName]
-        Scores = getScores(AllFeatures[FeatureName], CSMType, Kappa)
+        Scores = getScores(AllFeatures[FeatureName], OtherFeatures, CSMType, Kappa)
         Results[FeatureName] = Scores
         print("\n\nScores %s"%FeatureName)
-        getEvalStatistics(Scores, N, NSongs, [1, 25, 50, 100])
+        getEvalStatistics(Scores, N, NSongs, [1])#[1, 25, 50, 100])
         sio.savemat(matfilename, Results)
 
 
@@ -99,9 +104,9 @@ if __name__ == '__main__':
     hopSize = 512
     TempoBiases = [60, 120, 180]
 
-    #FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':40, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10}
+    FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':40, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10, 'NGeodesics':400}
 
-    FeatureParams = {'DPixels':50, 'D2Samples':50, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10}
+    #FeatureParams = {'DPixels':50, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10, 'NGeodesics':400}
 
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'D2s':'EMD1D'}
     doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat")
@@ -109,10 +114,10 @@ if __name__ == '__main__':
 if __name__ == '__main__2':
     Kappa = 0.1
     hopSize = 512
-    TempoBias1 = 120
-    TempoBias2 = 120
+    TempoBias1 = 180
+    TempoBias2 = 180
 
-    index = 75
+    index = 16
     fin = open('covers32k/list1.list', 'r')
     files1 = [f.strip() for f in fin.readlines()]
     fin.close()
@@ -121,11 +126,14 @@ if __name__ == '__main__2':
     fin.close()
     filename1 = "covers32k/" + files1[index] + ".mp3"
     filename2 = "covers32k/" + files2[index] + ".mp3"
-    #filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
-    #filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'
+    fileprefix = "Covers80%i"%index
 
-    FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':20, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10, 'NGeodesic':400}
+    filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
+    filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'
+    fileprefix = "BlurredLines"
 
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'D2s':'EMD1D'}
+    FeatureParams = {'DPixels':200, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':20, 'D2Samples':40, 'MFCCSamplesPerBlock':200, 'GeodesicDelta':10, 'NGeodesic':400, 'lifterexp':0.6, 'MFCCBeatsPerBlock':12, 'ChromaBeatsPerBlock':14, 'ChromasPerBlock':80}
 
-    compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, "Covers80%i"%index)
+    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+
+    compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix)

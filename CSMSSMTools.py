@@ -54,6 +54,29 @@ def getCSMCosine(X, Y):
     D = 1 - D #Make sure distance 0 is the same and distance 2 is the most different
     return D
 
+#Get the optimial transposition of the first chroma vector
+#with respet to the second one
+def getOTI(C1, C2, doPlot = False):
+    NChroma = len(C1)
+    shiftScores = np.zeros(NChroma)
+    for i in range(NChroma):
+        shiftScores[i] = np.sum(np.roll(C1, i)*C2)
+    if doPlot:
+        plt.plot(shiftScores)
+        plt.title("OTI")
+        plt.show()
+    return np.argmax(shiftScores)
+
+def getCSMCosineOTI(X, Y, C1, C2):
+    NChroma = len(C1)
+    ChromasPerBlock = X.shape[1]/NChroma
+    oti = getOTI(C1, C2)
+    print "oti = ", oti
+    X1 = np.reshape(X, (X.shape[0], ChromasPerBlock, NChroma))
+    X1 = np.roll(X1, oti, axis=2)
+    X1 = np.reshape(X1, [X.shape[0], ChromasPerBlock*NChroma])
+    return getCSMCosine(X1, Y)
+
 #Turn a cross-similarity matrix into a binary cross-simlarity matrix
 #If Kappa = 0, take all neighbors
 #If Kappa < 1 it is the fraction of mutual neighbors to consider
@@ -87,11 +110,13 @@ def CSMToBinaryMutual(D, Kappa):
 #Features1 and Features2 are Mxk and Nxk matrices of features, respectively
 #The type of cross-similarity can also be specified
 def getCSMSmithWatermanScores(args, doPlot = False):
-    [Features1, Features2, Kappa, Type] = args
+    [Features1, O1, Features2, O2, Kappa, Type] = args
     if Type == "Euclidean":
         CSM = getCSM(Features1, Features2)
     elif Type == "Cosine":
         CSM = getCSMCosine(Features1, Features2)
+    elif Type == "CosineOTI":
+        CSM = getCSMCosineOTI(Features1, Features2, O1['ChromaMean'], O2['ChromaMean'])
     elif Type == "EMD1D":
         CSM = getCSMEMD1D(Features1, Features2)
     DBinary = CSMToBinaryMutual(CSM, Kappa)

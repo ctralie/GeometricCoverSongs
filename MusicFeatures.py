@@ -70,7 +70,7 @@ def getCensFeatures(XAudio, Fs, hopSize):
     return Cens
 
 #Features: An array of features at different tempo levels
-def getScores(Features, CSMType, Kappa):
+def getScores(Features, OtherFeatures, CSMType, Kappa):
     NTempos = len(Features)
     parpool = PPool(processes = 8)
     N = len(Features[0])
@@ -79,7 +79,7 @@ def getScores(Features, CSMType, Kappa):
         for i in range(N):
             print("Comparing song %i of %i tempo level %i"%(i, N, ti))
             for tj in range(NTempos):
-                Z = zip([Features[ti][i]]*N, Features[tj], [Kappa]*N, [CSMType]*N)
+                Z = zip([Features[ti][i]]*N, [OtherFeatures[ti][i]]*N, Features[tj], OtherFeatures[tj], [Kappa]*N, [CSMType]*N)
                 s = np.zeros((2, Scores.shape[1]))
                 s[0, :] = Scores[i, :]
                 s[1, :] = parpool.map(getCSMSmithWatermanScores, Z)
