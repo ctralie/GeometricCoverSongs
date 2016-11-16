@@ -113,8 +113,8 @@ def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, 
             [i1, i2] = BestTempos[i, i, :]
             F1 = AllFeatures[FeatureName][i1][i]
             O1 = OtherFeatures[i1][i]
-            F2 = AllFeatures[FeatureName][i2][i]
-            O2 = OtherFeatures[i2][i]
+            F2 = AllFeatures[FeatureName][i2][i+NSongs]
+            O2 = OtherFeatures[i2][i+NSongs]
             plt.close("all")
             plt.figure(figsize=(48, 16))
             getCSMSmithWatermanScores([F1, O1, F2, O2, Kappa, CSMType], doPlot = True)
