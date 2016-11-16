@@ -198,10 +198,7 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
     Results = {'filename1':filename1, 'filename2':filename2, 'TempoBias1':TempoBias1, 'TempoBias2':TempoBias2, 'hopSize':hopSize, 'FeatureParams':FeatureParams, 'CSMTypes':CSMTypes, 'Kappa':Kappa}
     plt.figure(figsize=(16, 48))
     for FeatureName in Features1:
-        CSM = getCSM(Features1[FeatureName], Features2[FeatureName])
-        Results['CSM%s'%FeatureName] = CSM
-
-        getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
+        score = getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
         plt.savefig("%s_CSMs_%s.svg"%(fileprefix, FeatureName), dpi=200, bbox_inches='tight')
 
     sio.savemat("%s.mat"%fileprefix, Results)

@@ -69,12 +69,16 @@ def getCensFeatures(XAudio, Fs, hopSize):
     Cens = librosa.feature.chroma_cens(y=XAudio, sr=Fs, hop_length = hopSize)
     return Cens
 
-#Features: An array of features at different tempo levels
+#Features: An array of arrays of features at different tempo levels: [[Tempolevel1Features1, Tempolevel1Feature2, ...], [TempoLevel2Features1, TempoLevel2Features2]]
+
+#Returns: NxN array of scores, and corresponding NxNx2 array
+#of the best tempo indices
 def getScores(Features, OtherFeatures, CSMType, Kappa):
     NTempos = len(Features)
     parpool = PPool(processes = 8)
     N = len(Features[0])
     Scores = np.zeros((N, N))
+    BestTempos = np.zeros((N, N, 2), dtype=np.int32)
     for ti in range(NTempos):
         for i in range(N):
             print("Comparing song %i of %i tempo level %i"%(i, N, ti))
@@ -84,7 +88,9 @@ def getScores(Features, OtherFeatures, CSMType, Kappa):
                 s[0, :] = Scores[i, :]
                 s[1, :] = parpool.map(getCSMSmithWatermanScores, Z)
                 Scores[i, :] = np.max(s, 0)
-    return Scores
+                #Update which tempo combinations were the best
+                BestTempos[i, Scores[i, :] == s[0, :], :] = [ti, tj]
+    return (Scores, BestTempos)
 
 if __name__ == '__main__':
     import librosa
