@@ -1,3 +1,7 @@
+#Programmer: Chris Tralie
+#Purpose: To implement similarity network fusion approach described in
+#[1] Wang, Bo, et al. "Unsupervised metric fusion by cross diffusion." Computer Vision and Pattern Recognition (CVPR), 2012 IEEE Conference on. IEEE, 2012.
+#[2] Wang, Bo, et al. "Similarity network fusion for aggregating data types on a genomic scale." Nature methods 11.3 (2014): 333-337.
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import sparse
@@ -14,7 +18,7 @@ def getW(D, K, Mu = 0.5):
 
     Neighbs = np.sort(DSym, 1)[:, 1:K+1]
     MeanDist = np.mean(Neighbs, 1)
-    #Equation 1 in SNF paper for estimating local neighborhood radii
+    #Equation 1 in SNF paper [2] for estimating local neighborhood radii
     #by looking at k nearest neighbors, not including point itself
     Eps = MeanDist[:, None] + MeanDist[None, :] + DSym
     Eps = Eps/3
@@ -102,7 +106,6 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
 if __name__ == '__main__':
     X = sio.loadmat('Scores4.mat')
     PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
-    PlotNames = ['ScoresSSMs', 'ScoresSSMs']
     Scores = [X[s] for s in PlotNames]
     for i in range(len(Scores)):
         Scores[i] = 1.0/Scores[i]
@@ -111,5 +114,5 @@ if __name__ == '__main__':
 
     FusedScores = doSimilarityFusion(Scores, W, 20, 1, [])
     fout = open("resultsFusion.html", "a")
-    getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 25, 50, 100], fout, name = "SSMs to Self, 20NN, 1Reg")
+    getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 25, 50, 100], fout, name = "SSMs/MFCCs/HPCP/CENS, 20NN, 1Reg")
     fout.close()
