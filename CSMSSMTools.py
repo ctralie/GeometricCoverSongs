@@ -105,20 +105,25 @@ def CSMToBinaryMutual(D, Kappa):
     B2 = CSMToBinary(D.T, Kappa)
     return B1*B2.T
 
+def getCSMType(Features1, O1, Features2, O2, Type):
+    if Type == "Euclidean":
+        return getCSM(Features1, Features2)
+    elif Type == "Cosine":
+        return getCSMCosine(Features1, Features2)
+    elif Type == "CosineOTI":
+        return getCSMCosineOTI(Features1, Features2, O1['ChromaMean'], O2['ChromaMean'])
+    elif Type == "EMD1D":
+        return getCSMEMD1D(Features1, Features2)
+    print "Error: Unknown CSM type ", Type
+    return None
+
 #Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
 #computing of all of the smith waterman scores for a pair of songs.
 #Features1 and Features2 are Mxk and Nxk matrices of features, respectively
 #The type of cross-similarity can also be specified
 def getCSMSmithWatermanScores(args, doPlot = False):
     [Features1, O1, Features2, O2, Kappa, Type] = args
-    if Type == "Euclidean":
-        CSM = getCSM(Features1, Features2)
-    elif Type == "Cosine":
-        CSM = getCSMCosine(Features1, Features2)
-    elif Type == "CosineOTI":
-        CSM = getCSMCosineOTI(Features1, Features2, O1['ChromaMean'], O2['ChromaMean'])
-    elif Type == "EMD1D":
-        CSM = getCSMEMD1D(Features1, Features2)
+    CSM = getCSMType(Features1, O1, Feature2, O2, Type)
     DBinary = CSMToBinaryMutual(CSM, Kappa)
     if doPlot:
         (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
@@ -132,3 +137,8 @@ def getCSMSmithWatermanScores(args, doPlot = False):
         plt.imshow(D, interpolation = 'none')
         plt.title("Smith Waterman Score = %g"%maxD)
     return _SequenceAlignment.swalignimpconstrained(DBinary)
+
+def getCrossDiffusion(args):
+    [AllFeatures1, AllFeatures2, O1, O2] = args
+    for i in range(len(AllFeatures1)):
+        print "TODO"

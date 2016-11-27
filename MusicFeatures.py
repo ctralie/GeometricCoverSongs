@@ -49,7 +49,17 @@ def getMFCCs(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC
     X = coeffs[:, None]*X
     return X
 
-def getHPCPEssentia(XAudio, Fs, winSize, hopSize):
+#Norm-preserving square root (as in "chrompwr.m" by Ellis)
+def sqrtCompress(X):
+    Norms = np.sqrt(np.sum(X**2, 0))
+    Norms[Norms == 0] = 1
+    Y = (X/Norms[None, :])**0.5
+    NewNorms = np.sqrt(np.sum(Y**2, 0))
+    NewNorms[NewNorms == 0] = 1
+    Y = Y*(Norms[None, :]/NewNorms[None, :])
+    return Y
+
+def getHPCPEssentia(XAudio, Fs, winSize, hopSize, squareRoot = False):
     import essentia
     from essentia import Pool, array
     import essentia.standard as ess
@@ -63,11 +73,16 @@ def getHPCPEssentia(XAudio, Fs, winSize, hopSize):
         freqs, mags = spectralPeaks(S)
         H.append(hpcp(freqs, mags))
     H = np.array(H)
+    H = H.T
+    if squareRoot:
+        H = sqrtCompress(H)
     return H
 
-def getCensFeatures(XAudio, Fs, hopSize):
-    Cens = librosa.feature.chroma_cens(y=XAudio, sr=Fs, hop_length = hopSize)
-    return Cens
+def getCensFeatures(XAudio, Fs, hopSize, squareRoot = False):
+    X = librosa.feature.chroma_cens(y=XAudio, sr=Fs, hop_length = hopSize)
+    if squareRoot:
+        X = sqrtCompress(X)
+    return X
 
 #Features: An array of arrays of features at different tempo levels: [[Tempolevel1Features1, Tempolevel1Feature2, ...], [TempoLevel2Features1, TempoLevel2Features2]]
 
@@ -98,15 +113,16 @@ if __name__ == '__main__':
     XAudio = librosa.core.to_mono(XAudio)
     w = int(np.floor(Fs/4)*2)
 
-    winSize = 8192#16384
     hopSize = 512#8192
+    winSize = hopSize*4#8192#16384
 
     H = getHPCPEssentia(XAudio, Fs, winSize, hopSize)
 
-    Cens = librosa.feature.chroma_cens(y=XAudio, sr=Fs)
-    N = int(np.round(len(XAudio)/Fs))*3
-    Cens = scipy.misc.imresize(Cens, (12, N))
-    print Cens.shape
+    Cens = getCensFeatures(XAudio, Fs, hopSize, squareRoot = True)
+    #Cens = librosa.feature.chroma_cens(y=XAudio, sr=Fs)
+    #N = int(np.round(len(XAudio)/Fs))*3
+    #Cens = scipy.misc.imresize(Cens, (12, N))
+    #print Cens.shape
 
     plt.subplot(211)
     librosa.display.specshow(H.T, y_axis='chroma', x_axis='time')

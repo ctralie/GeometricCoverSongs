@@ -168,7 +168,8 @@ def getBlockWindowFeatures(args):
     XChroma = np.array([])
     if usingChroma:
         BlockFeatures['Chromas'] = np.zeros((NChromaBlocks, ChromasPerBlock*12))
-        XChroma = getCensFeatures(XAudio, Fs, hopSize)
+        #XChroma = getCensFeatures(XAudio, Fs, hopSize)
+        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, squareRoot = True)
         #librosa.display.specshow(XChroma, y_axis='chroma', x_axis='time')
         #plt.show()
         OtherFeatures['ChromaMean'] = np.mean(XChroma, 1)
