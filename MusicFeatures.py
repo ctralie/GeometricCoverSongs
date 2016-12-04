@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import sys
 import librosa
 import scipy.misc
-from multiprocessing import Pool as PPool
 from CSMSSMTools import *
 
 def getAudio(filename):
@@ -59,14 +58,14 @@ def sqrtCompress(X):
     Y = Y*(Norms[None, :]/NewNorms[None, :])
     return Y
 
-def getHPCPEssentia(XAudio, Fs, winSize, hopSize, squareRoot = False):
+def getHPCPEssentia(XAudio, Fs, winSize, hopSize, squareRoot = False, NChromaBins = 36):
     import essentia
     from essentia import Pool, array
     import essentia.standard as ess
     spectrum = ess.Spectrum()
     window = ess.Windowing(size=winSize, type='hann')
     spectralPeaks = ess.SpectralPeaks()
-    hpcp = ess.HPCP()
+    hpcp = ess.HPCP(size = NChromaBins)
     H = []
     for frame in ess.FrameGenerator(XAudio, frameSize=winSize, hopSize=hopSize, startFromZero = True):
         S = spectrum(window(frame))
@@ -84,28 +83,6 @@ def getCensFeatures(XAudio, Fs, hopSize, squareRoot = False):
         X = sqrtCompress(X)
     return X
 
-#Features: An array of arrays of features at different tempo levels: [[Tempolevel1Features1, Tempolevel1Feature2, ...], [TempoLevel2Features1, TempoLevel2Features2]]
-
-#Returns: NxN array of scores, and corresponding NxNx2 array
-#of the best tempo indices
-def getScores(Features, OtherFeatures, CSMType, Kappa):
-    NTempos = len(Features)
-    parpool = PPool(processes = 8)
-    N = len(Features[0])
-    Scores = np.zeros((N, N))
-    BestTempos = np.zeros((N, N, 2), dtype=np.int32)
-    for ti in range(NTempos):
-        for i in range(N):
-            print("Comparing song %i of %i tempo level %i"%(i, N, ti))
-            for tj in range(NTempos):
-                Z = zip([Features[ti][i]]*N, [OtherFeatures[ti][i]]*N, Features[tj], OtherFeatures[tj], [Kappa]*N, [CSMType]*N)
-                s = np.zeros((2, Scores.shape[1]))
-                s[0, :] = Scores[i, :]
-                s[1, :] = parpool.map(getCSMSmithWatermanScores, Z)
-                Scores[i, :] = np.max(s, 0)
-                #Update which tempo combinations were the best
-                BestTempos[i, Scores[i, :] == s[0, :], :] = [ti, tj]
-    return (Scores, BestTempos)
 
 if __name__ == '__main__':
     import librosa

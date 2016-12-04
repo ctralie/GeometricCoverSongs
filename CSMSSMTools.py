@@ -5,6 +5,7 @@ sys.path.append('SequenceAlignment')
 import _SequenceAlignment
 import SequenceAlignment
 import scipy.misc
+from multiprocessing import Pool as PPool
 
 #Get a self-similarity matrix
 def getSSM(x, DPixels, doPlot = False):
@@ -68,13 +69,13 @@ def getOTI(C1, C2, doPlot = False):
     return np.argmax(shiftScores)
 
 def getCSMCosineOTI(X, Y, C1, C2):
-    NChroma = len(C1)
-    ChromasPerBlock = X.shape[1]/NChroma
+    NChromaBins = len(C1)
+    ChromasPerBlock = X.shape[1]/NChromaBins
     oti = getOTI(C1, C2)
     #print "oti = ", oti
-    X1 = np.reshape(X, (X.shape[0], ChromasPerBlock, NChroma))
+    X1 = np.reshape(X, (X.shape[0], ChromasPerBlock, NChromaBins))
     X1 = np.roll(X1, oti, axis=2)
-    X1 = np.reshape(X1, [X.shape[0], ChromasPerBlock*NChroma])
+    X1 = np.reshape(X1, [X.shape[0], ChromasPerBlock*NChromaBins])
     return getCSMCosine(X1, Y)
 
 #Turn a cross-similarity matrix into a binary cross-simlarity matrix
@@ -117,13 +118,17 @@ def getCSMType(Features1, O1, Features2, O2, Type):
     print "Error: Unknown CSM type ", Type
     return None
 
+
+######################################################
+##      Ordinary CSM and Smith Waterman Tests       ##
+######################################################
 #Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
 #computing of all of the smith waterman scores for a pair of songs.
 #Features1 and Features2 are Mxk and Nxk matrices of features, respectively
 #The type of cross-similarity can also be specified
 def getCSMSmithWatermanScores(args, doPlot = False):
     [Features1, O1, Features2, O2, Kappa, Type] = args
-    CSM = getCSMType(Features1, O1, Feature2, O2, Type)
+    CSM = getCSMType(Features1, O1, Features2, O2, Type)
     DBinary = CSMToBinaryMutual(CSM, Kappa)
     if doPlot:
         (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
@@ -138,7 +143,83 @@ def getCSMSmithWatermanScores(args, doPlot = False):
         plt.title("Smith Waterman Score = %g"%maxD)
     return _SequenceAlignment.swalignimpconstrained(DBinary)
 
-def getCrossDiffusion(args):
-    [AllFeatures1, AllFeatures2, O1, O2] = args
-    for i in range(len(AllFeatures1)):
-        print "TODO"
+#Features: An array of arrays of features at different tempo levels: [[Tempolevel1Features1, Tempolevel1Feature2, ...], [TempoLevel2Features1, TempoLevel2Features2]]
+#Returns: NxN array of scores, and corresponding NxNx2 array
+#of the best tempo indices
+def getScores(Features, OtherFeatures, CSMType, Kappa):
+    NTempos = len(Features)
+    parpool = PPool(processes = 8)
+    N = len(Features[0])
+    Scores = np.zeros((N, N))
+    BestTempos = np.zeros((N, N, 2), dtype=np.int32)
+    for ti in range(NTempos):
+        for i in range(N):
+            print("Comparing song %i of %i tempo level %i"%(i, N, ti))
+            for tj in range(NTempos):
+                Z = zip([Features[ti][i]]*N, [OtherFeatures[ti][i]]*N, Features[tj], OtherFeatures[tj], [Kappa]*N, [CSMType]*N)
+                s = np.zeros((2, Scores.shape[1]))
+                s[0, :] = Scores[i, :]
+                s[1, :] = parpool.map(getCSMSmithWatermanScores, Z)
+                Scores[i, :] = np.max(s, 0)
+                #Update which tempo combinations were the best
+                BestTempos[i, Scores[i, :] == s[0, :], :] = [ti, tj]
+    return (Scores, BestTempos)
+
+
+######################################################
+##      Ordinary CSM and Smith Waterman Tests       ##
+######################################################
+def getCSMSmithWatermanScoresORMerge(args, doPlot = False):
+    [AllFeatures1, O1, AllFeatures2, O2, Kappa, CSMTypes] = args
+    CSMs = []
+    DsBinary = []
+    Features = AllFeatures1.keys()
+    #Compute all CSMs
+    for i in range(len(Features)):
+        F = Features[i]
+        CSMs.append(getCSMType(AllFeatures1[F], O1, AllFeatures2[F], O2, CSMTypes[F]))
+        DsBinary.append(CSMToBinaryMutual(CSMs[i], Kappa))
+    #Do an OR merge
+    DBinary = np.zeros(DsBinary[0].shape)
+    for D in DsBinary:
+        DBinary += D
+    DBinary[DBinary > 0] = 1
+    if doPlot:
+        #TODO: I have no idea why I'm seeing a large gap
+        (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
+        N = len(CSMs)
+        for i in range(N):
+            print("plt.subplot(2, %i, %i)"%(N+1, i+1))
+            plt.subplot(2, N+1, i+1)
+            plt.imshow(CSMs[i], interpolation = 'none')
+            plt.title('CSM %s'%Features[i])
+            plt.subplot(2, N+1, N+2+i)
+            plt.imshow(DsBinary[i], interpolation = 'none')
+            plt.title("CSM Binary %s K=%g"%(Features[i], Kappa))
+        plt.subplot(2, N+1, 2*N+2)
+        plt.imshow(DBinary, interpolation = 'none')
+        plt.title('CSM Binary OR Merged')
+        plt.subplot(2, N+1, N+1)
+        plt.imshow(D, interpolation = 'none')
+        plt.title("Smith Waterman Score = %g"%maxD)
+    return _SequenceAlignment.swalignimpconstrained(DBinary)
+
+
+def getScoresEarlyORMerge(AllFeatures, OtherFeatures, CSMTypes, Kappa):
+    NTempos = len(AllFeatures)
+    parpool = PPool(processes = 8)
+    N = len(AllFeatures[0][0])
+    Scores = np.zeros((N, N))
+    BestTempos = np.zeros((N, N, 2), dtype=np.int32)
+    for ti in range(NTempos):
+        for i in range(N):
+            print("Comparing song %i of %i tempo level %i"%(i, N, ti))
+            for tj in range(NTempos):
+                Z = zip([AllFeatures[ti][i]]*N, [OtherFeatures[ti][i]]*N, AllFeatures[tj], OtherFeatures[tj], [Kappa]*N, [CSMTypes]*N)
+                s = np.zeros((2, Scores.shape[1]))
+                s[0, :] = Scores[i, :]
+                s[1, :] = parpool.map(getCSMSmithWatermanScoresORMerge, Z)
+                Scores[i, :] = np.max(s, 0)
+                #Update which tempo combinations were the best
+                BestTempos[i, Scores[i, :] == s[0, :], :] = [ti, tj]
+    return (Scores, BestTempos)

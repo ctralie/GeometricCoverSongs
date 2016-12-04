@@ -25,6 +25,9 @@ def getW(D, K, Mu = 0.5):
     W = np.exp(-DSym**2/(2*(Mu*Eps)**2))#/(Mu*Eps*np.sqrt(2*np.pi))
     return W
 
+def getWCSMSSM(SSMA, SSMB, CSMAB, Mu = 0.5):
+    print "TODO"
+
 #Probability matrix
 def getP(W, diagRegularize = False):
     if diagRegularize:
@@ -81,7 +84,10 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
                 res = np.argmax(Pts[i][0:80, 80::], 1)
                 res = np.sum(res == np.arange(80))
                 plt.subplot(k, k, i+1)
-                plt.imshow(Pts[i], interpolation = 'none')
+                Im = 1.0*Pts[i]
+                Idx = np.arange(Im.shape[0], dtype=np.int64)
+                Im[Idx, Idx] = 0
+                plt.imshow(Im, interpolation = 'none')
                 plt.title("%s: %i/80"%(PlotNames[i], res))
                 plt.axis('off')
             plt.savefig("SSMFusion%i.png"%it, dpi=150, bbox_inches='tight')

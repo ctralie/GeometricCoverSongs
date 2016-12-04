@@ -158,6 +158,7 @@ def getBlockWindowFeatures(args):
     NChromaBlocks = 0
     ChromaBeatsPerBlock = 20
     ChromasPerBlock = 40
+    NChromaBins = 12
     if 'ChromaBeatsPerBlock' in FeatureParams:
         ChromaBeatsPerBlock = FeatureParams['ChromaBeatsPerBlock']
         NChromaBlocks = NBeats - ChromaBeatsPerBlock
@@ -165,11 +166,13 @@ def getBlockWindowFeatures(args):
     if 'ChromasPerBlock' in FeatureParams:
         ChromasPerBlock = FeatureParams['ChromasPerBlock']
         usingChroma = True
+    if 'NChromaBins' in FeatureParams:
+        NChromaBins = FeatureParams['NChromaBins']
     XChroma = np.array([])
     if usingChroma:
-        BlockFeatures['Chromas'] = np.zeros((NChromaBlocks, ChromasPerBlock*12))
+        BlockFeatures['Chromas'] = np.zeros((NChromaBlocks, ChromasPerBlock*NChromaBins))
         #XChroma = getCensFeatures(XAudio, Fs, hopSize)
-        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, squareRoot = True)
+        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
         #librosa.display.specshow(XChroma, y_axis='chroma', x_axis='time')
         #plt.show()
         OtherFeatures['ChromaMean'] = np.mean(XChroma, 1)
@@ -177,7 +180,7 @@ def getBlockWindowFeatures(args):
         i1 = beats[i]
         i2 = beats[i+ChromaBeatsPerBlock]
         x = XChroma[:, i1:i2].T
-        x = scipy.misc.imresize(x, (ChromasPerBlock, 12))
+        x = scipy.misc.imresize(x, (ChromasPerBlock, x.shape[1]))
         xnorm = np.sqrt(np.sum(x**2, 1))
         xnorm[xnorm == 0] = 1
         x = x/xnorm[:, None]
@@ -198,8 +201,16 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
 
     Results = {'filename1':filename1, 'filename2':filename2, 'TempoBias1':TempoBias1, 'TempoBias2':TempoBias2, 'hopSize':hopSize, 'FeatureParams':FeatureParams, 'CSMTypes':CSMTypes, 'Kappa':Kappa}
     plt.figure(figsize=(16, 48))
+
+    #Do each feature individually
     for FeatureName in Features1:
         score = getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
         plt.savefig("%s_CSMs_%s.svg"%(fileprefix, FeatureName), dpi=200, bbox_inches='tight')
+
+    #Do OR Merging
+    plt.clf()
+    plt.figure(figsize=(16, 16 + 16*len(Features1.keys())))
+    score = getCSMSmithWatermanScoresORMerge([Features1, O1, Features2, O2, Kappa, CSMTypes], True)
+    plt.savefig("%s_CSM_ORMerged.svg"%fileprefix, dpi=200, bbox_inches='tight')
 
     sio.savemat("%s.mat"%fileprefix, Results)
