@@ -208,7 +208,7 @@ def getCSMSmithWatermanScoresORMerge(args, doPlot = False):
 def getScoresEarlyORMerge(AllFeatures, OtherFeatures, CSMTypes, Kappa):
     NTempos = len(AllFeatures)
     parpool = PPool(processes = 8)
-    N = len(AllFeatures[0][0])
+    N = len(AllFeatures[0])
     Scores = np.zeros((N, N))
     BestTempos = np.zeros((N, N, 2), dtype=np.int32)
     for ti in range(NTempos):
