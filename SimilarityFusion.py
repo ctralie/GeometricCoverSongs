@@ -25,8 +25,37 @@ def getW(D, K, Mu = 0.5):
     W = np.exp(-DSym**2/(2*(Mu*Eps)**2))#/(Mu*Eps*np.sqrt(2*np.pi))
     return W
 
-def getWCSMSSM(SSMA, SSMB, CSMAB, Mu = 0.5):
-    print "TODO"
+#Cross-Affinity Matrix.  Do a special weighting of nearest neighbors
+#so that there are a proportional number of similarity neighbors
+#and cross neighbors
+def getWCSMSSM(SSMA, SSMB, CSMAB, K, Mu = 0.5):
+    N = SSMA.shape[0]
+    M = SSMB.shape[0]
+    #Split the neighbors evenly between the CSM
+    #and SSM parts of each row
+    k1 = int(K*float(N)/(M+N))
+    k2 = K - k1
+
+    WSSMA = getW(SSMA, k1, Mu)
+    WSSMB = getW(SSMB, k2, Mu)
+
+    Neighbs1 = np.sort(CSMAB, 1)[:, 0:k2]
+    MeanDist1 = np.mean(Neighbs1, 1)
+    Neighbs2 = np.sort(CSMAB, 0)[0:k1, :]
+    MeanDist2 = np.mean(Neighbs2, 0)
+    Eps = MeanDist1[:, None] + MeanDist2[None, :] + CSMAB
+    Eps /= 3
+    WCSMAB = np.exp(-CSMAB**2/(2*(Mu*Eps)**2))
+
+
+    #Setup matrix  [ SSMA  CSMAB ]
+    #              [ CSMBA SSMB ]
+    W = np.zeros((N+M, N+M))
+    W[0:N, 0:N] = WSSMA
+    W[0:N, N::] = WCSMAB
+    W[N::, 0:N] = WCSMAB.T
+    W[N::, N::] = WSSMB
+    return W
 
 #Probability matrix
 def getP(W, diagRegularize = False):
@@ -60,15 +89,14 @@ def getS(W, K):
     S = S/SNorm[:, None]
     return S
 
-#Scores: An array of NxN similarity matrices for N songs
+
+#Ws: An array of NxN affinity matrices for N songs
 #K: Number of nearest neighbors
 #NIters: Number of iterations
 #reg: Identity matrix regularization parameter for self-similarity promotion
 #PlotNames: Strings describing different similarity measurements.
 #If this array is specified, an animation will be saved of the cross-diffusion process
-def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
-    #Affinity matrices
-    Ws = [getW(D, K) for D in Scores]
+def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = []):
     #Full probability matrices
     Ps = [getP(W) for W in Ws]
     #Nearest neighbor truncated matrices
@@ -109,6 +137,12 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
         FusedScores += Pt
     return FusedScores/N
 
+#Same as above, except scores is an array of NxN distance matrices
+def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
+    #Affinity matrices
+    Ws = [getW(D, K) for D in Scores]
+    return doSimilarityFusionWs(Ws, K, NIters, reg, PlotNames)
+
 if __name__ == '__main__':
     X = sio.loadmat('Scores4.mat')
     PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
@@ -118,7 +152,7 @@ if __name__ == '__main__':
 
     W = 20
 
-    FusedScores = doSimilarityFusion(Scores, W, 20, 1, [])
+    FusedScores = doSimilarityFusion(Scores, W, 20, 1, PlotNames)
     fout = open("resultsFusion.html", "a")
     getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 25, 50, 100], fout, name = "SSMs/MFCCs/HPCP/CENS, 20NN, 1Reg")
     fout.close()
