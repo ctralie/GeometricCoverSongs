@@ -63,7 +63,7 @@ def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, 
         CSMType = 'Euclidean' #Euclidean comparison by default
         if FeatureName in CSMTypes:
             CSMType = CSMTypes[FeatureName]
-        (Scores, BestTempos) = getScores(AllFeatures[FeatureName], OtherFeatures, CSMType, Kappa)
+        (Scores, BestTempos) = getScores(AllFeatures[FeatureName], OtherFeatures, Kappa, CSMType)
         Results[FeatureName] = Scores
         Results["%sTempos"%FeatureName] = BestTempos
         print("\n\nScores %s"%FeatureName)
@@ -148,11 +148,12 @@ def doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa,
 
     Results = {'Params':FeatureParams, 'hopSize':hopSize, 'TempoBiases':TempoBiases, 'Kappa':Kappa, 'CSMTypes':CSMTypes}
 
+    K = 20
     print "Scoring early fusion of ", AllFeatures[0][0].keys()
-    (Scores, BestTempos) = getScoresEarlyORMerge(AllFeatures, OtherFeatures, CSMTypes, Kappa)
+    (Scores, BestTempos) = getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, CSMTypes)
 
     Results = {}
-    FeatureName = "ORFusion"
+    FeatureName = "EarlyFusion%i"%K
     for key in AllFeatures[0][0].keys():
         FeatureName += "_" + key
     Results[FeatureName] = Scores

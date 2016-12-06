@@ -47,7 +47,7 @@ if __name__ == '__main__':
     TempoBias1 = 180
     TempoBias2 = 180
 
-    index = 75
+    index = 8
     fin = open('covers32k/list1.list', 'r')
     files1 = [f.strip() for f in fin.readlines()]
     fin.close()
@@ -88,69 +88,13 @@ if __name__ == '__main__':
         O1 = X['O1']
         O2 = X['O2']
 
-    X1 = Features1['SSMs']
-    X2 = Features2['SSMs']
-    Y1 = Features1['Chromas']
-    Y2 = Features2['Chromas']
-
-    SSMX1 = getCSM(X1, X1)
-    SSMX2 = getCSM(X2, X2)
-    CSMX1X2 = getCSM(X1, X2)
-
-    SSMY1 = getCSMCosine(Y1, Y1)
-    SSMY2 = getCSMCosine(Y2, Y2)
-    CSMY1Y2 = getCSMCosine(Y1, Y2)
-
-    W1 = getWCSMSSM(SSMX1, SSMX2, CSMX1X2, 20)
-    W2 = getWCSMSSM(SSMY1, SSMY2, CSMY1Y2, 20)
-
-    # plt.subplot(121)
-    # plt.imshow(W1, interpolation = 'none')
-    # plt.subplot(122)
-    # plt.imshow(W2, interpolation = 'none')
-    # plt.show()
-
-    tic = time.time()
-    D = doSimilarityFusionWs([W1, W2], 20, 20, 1, ['SSMs', 'Chromas'])
-    toc = time.time()
-    print "Elapsed time: ", toc-tic
-
-    N = X1.shape[0]
-    M = X2.shape[0]
-    CSM = D[0:N, N::] + D[N::, 0:N].T
-
-    Kappa = 0.1
-    plt.subplot(331)
-    plt.imshow(CSMX1X2)
-    plt.title("CSM SSMs")
-    plt.subplot(334)
-    DBinary = CSMToBinaryMutual(CSMX1X2, Kappa)
-    plt.imshow(DBinary)
-    (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
-    plt.subplot(337)
-    plt.imshow(D)
-    plt.title("Score = %g"%maxD)
-
-    plt.subplot(332)
-    plt.imshow(CSMY1Y2)
-    plt.title("CSM HPCPs")
-    plt.subplot(335)
-    DBinary = CSMToBinaryMutual(CSMY1Y2, Kappa)
-    plt.imshow(DBinary)
-    (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
-    plt.subplot(338)
-    plt.imshow(D)
-    plt.title("Score = %g"%maxD)
-
-    plt.subplot(333)
-    plt.imshow(CSM)
-    plt.title("CSM Fused")
-    plt.subplot(336)
-    DBinary = CSMToBinaryMutual(np.exp(-CSM), Kappa)
-    plt.imshow(DBinary)
-    (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
-    plt.subplot(339)
-    plt.imshow(D)
-    plt.title("Score = %g"%maxD)
-
+    Features = ['SSMs', 'Chromas']
+    Features1b = {}
+    Features2b = {}
+    for F in Features:
+        Features1b[F] = Features1[F]
+        Features2b[F] = Features2[F]
+    Features1 = Features1b
+    Features2 = Features2b
+    getCSMSmithWatermanEarlyFusion([Features1, O1, Features2, O2, 0.1, 20, CSMTypes], doPlot = True)
     plt.show()
