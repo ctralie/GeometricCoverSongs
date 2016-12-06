@@ -149,8 +149,9 @@ def doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa,
     Results = {'Params':FeatureParams, 'hopSize':hopSize, 'TempoBiases':TempoBiases, 'Kappa':Kappa, 'CSMTypes':CSMTypes}
 
     K = 20
+    NIters = 10
     print "Scoring early fusion of ", AllFeatures[0][0].keys()
-    (Scores, BestTempos) = getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, CSMTypes)
+    (Scores, BestTempos) = getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, NIters, CSMTypes)
 
     Results = {}
     FeatureName = "EarlyFusion%i"%K

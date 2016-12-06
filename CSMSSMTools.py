@@ -215,6 +215,7 @@ def getScoresEarlyORMerge(AllFeatures, OtherFeatures, Kappa, CSMTypes):
     BestTempos = np.zeros((N, N, 2), dtype=np.int32)
     for ti in range(NTempos):
         for i in range(N):
+            tic = time.time()
             print("Comparing song %i of %i tempo level %i"%(i, N, ti))
             for tj in range(NTempos):
                 Z = zip([AllFeatures[ti][i]]*N, [OtherFeatures[ti][i]]*N, AllFeatures[tj], OtherFeatures[tj], [Kappa]*N, [CSMTypes]*N)
@@ -224,6 +225,8 @@ def getScoresEarlyORMerge(AllFeatures, OtherFeatures, Kappa, CSMTypes):
                 Scores[i, :] = np.max(s, 0)
                 #Update which tempo combinations were the best
                 BestTempos[i, Scores[i, :] == s[0, :], :] = [ti, tj]
+            toc = time.time()
+            print "Elapsed time: ", toc-tic
     return (Scores, BestTempos)
 
 
@@ -231,7 +234,7 @@ def getScoresEarlyORMerge(AllFeatures, OtherFeatures, Kappa, CSMTypes):
 ##          Early Fusion Smith Waterman Tests       ##
 ######################################################
 def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
-    [AllFeatures1, O1, AllFeatures2, O2, Kappa, K, CSMTypes] = args
+    [AllFeatures1, O1, AllFeatures2, O2, Kappa, K, NIters, CSMTypes] = args
     CSMs = [] #Individual CSMs
     Ws = [] #W built from fused CSMs/SSMs
     Features = AllFeatures1.keys()
@@ -243,19 +246,23 @@ def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
         CSMAB = getCSMType(AllFeatures1[F], O1, AllFeatures2[F], O2, CSMTypes[F])
         CSMs.append(CSMAB)
         #Build W from CSM and SSMs
+        tic = time.time()
         Ws.append(getWCSMSSM(SSMA, SSMB, CSMAB, K))
+        toc = time.time()
+        print "Elapsed time building W: ", toc - tic
     tic = time.time()
-    D = doSimilarityFusionWs(Ws, K, 20, 1)
+    D = doSimilarityFusionWs(Ws, K, NIters, 1)
+    toc = time.time()
+    t1 = toc - tic
     N = AllFeatures1[Features[0]].shape[0]
     CSM = D[0:N, N::] + D[N::, 0:N].T
     #Note that the CSM is in probabalistic weight form, so the
     #"nearest neighbors" are actually those with highest weight.  So
     #apply monotonic exp(-CSM) to fix this
     DBinary = CSMToBinaryMutual(np.exp(-CSM), Kappa)
-    toc = time.time()
 
     if doPlot:
-        print "Elapsed Time: ", toc-tic
+        print "Elapsed Time: ", t1
         N = len(CSMs)
         for i in range(N):
             plt.subplot(3, N+1, i+1)
@@ -282,7 +289,7 @@ def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
     return _SequenceAlignment.swalignimpconstrained(DBinary)
 
 
-def getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, CSMTypes):
+def getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, NIters, CSMTypes):
     NTempos = len(AllFeatures)
     parpool = PPool(processes = 8)
     N = len(AllFeatures[0])
@@ -292,7 +299,7 @@ def getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, CSMTypes):
         for i in range(N):
             print("Comparing song %i of %i tempo level %i"%(i, N, ti))
             for tj in range(NTempos):
-                Z = zip([AllFeatures[ti][i]]*N, [OtherFeatures[ti][i]]*N, AllFeatures[tj], OtherFeatures[tj], [Kappa]*N, [K]*N, [CSMTypes]*N)
+                Z = zip([AllFeatures[ti][i]]*N, [OtherFeatures[ti][i]]*N, AllFeatures[tj], OtherFeatures[tj], [Kappa]*N, [K]*N, [NIters]*N, [CSMTypes]*N)
                 s = np.zeros((2, Scores.shape[1]))
                 s[0, :] = Scores[i, :]
                 s[1, :] = parpool.map(getCSMSmithWatermanScoresEarlyFusion, Z)

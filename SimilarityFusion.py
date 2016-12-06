@@ -104,6 +104,7 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = []):
 
     #Now do cross-diffusion iterations
     Pts = [np.array(P) for P in Ps]
+    nextPts = [np.zeros(P.shape) for P in Pts]
     N = len(Pts)
     for it in range(NIters):
         if len(PlotNames) == N:
@@ -119,9 +120,8 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = []):
                 plt.title("%s: %i/80"%(PlotNames[i], res))
                 plt.axis('off')
             plt.savefig("SSMFusion%i.png"%it, dpi=150, bbox_inches='tight')
-
-        nextPts = [np.zeros(P.shape) for P in Pts]
         for i in range(N):
+            nextPts[i] *= 0
             for k in range(N):
                 if i == k:
                     continue
@@ -130,6 +130,7 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = []):
             nextPts[i] = Ss[i].dot(nextPts[i].dot(Ss[i].T))
             if reg > 0:
                 nextPts[i] += reg*np.eye(nextPts[i].shape[0])
+            toc = time.time()
         Pts = nextPts
 
     FusedScores = np.zeros(Pts[0].shape)

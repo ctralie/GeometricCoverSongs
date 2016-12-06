@@ -96,5 +96,5 @@ if __name__ == '__main__':
         Features2b[F] = Features2[F]
     Features1 = Features1b
     Features2 = Features2b
-    getCSMSmithWatermanEarlyFusion([Features1, O1, Features2, O2, 0.1, 20, CSMTypes], doPlot = True)
+    getCSMSmithWatermanScoresEarlyFusion([Features1, O1, Features2, O2, 0.1, 20, CSMTypes], doPlot = True)
     plt.show()
