@@ -246,10 +246,7 @@ def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
         CSMAB = getCSMType(AllFeatures1[F], O1, AllFeatures2[F], O2, CSMTypes[F])
         CSMs.append(CSMAB)
         #Build W from CSM and SSMs
-        tic = time.time()
         Ws.append(getWCSMSSM(SSMA, SSMB, CSMAB, K))
-        toc = time.time()
-        print "Elapsed time building W: ", toc - tic
     tic = time.time()
     D = doSimilarityFusionWs(Ws, K, NIters, 1)
     toc = time.time()
@@ -298,6 +295,7 @@ def getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, NIters, CSMTypes)
     for ti in range(NTempos):
         for i in range(N):
             print("Comparing song %i of %i tempo level %i"%(i, N, ti))
+            tic = time.time()
             for tj in range(NTempos):
                 Z = zip([AllFeatures[ti][i]]*N, [OtherFeatures[ti][i]]*N, AllFeatures[tj], OtherFeatures[tj], [Kappa]*N, [K]*N, [NIters]*N, [CSMTypes]*N)
                 s = np.zeros((2, Scores.shape[1]))
@@ -306,4 +304,6 @@ def getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, NIters, CSMTypes)
                 Scores[i, :] = np.max(s, 0)
                 #Update which tempo combinations were the best
                 BestTempos[i, Scores[i, :] == s[0, :], :] = [ti, tj]
+            toc = time.time()
+            print "Elapsed time: ", toc-tic
     return (Scores, BestTempos)
