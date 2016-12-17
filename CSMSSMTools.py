@@ -286,7 +286,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False):
     return {'score':_SequenceAlignment.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary}
 
 def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
-    return getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False)['score']
+    return getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot)['score']
 
 
 def getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, NIters, CSMTypes):
