@@ -233,7 +233,7 @@ def getScoresEarlyORMerge(AllFeatures, OtherFeatures, Kappa, CSMTypes):
 ######################################################
 ##          Early Fusion Smith Waterman Tests       ##
 ######################################################
-def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
+def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False):
     [AllFeatures1, O1, AllFeatures2, O2, Kappa, K, NIters, CSMTypes] = args
     CSMs = [] #Individual CSMs
     Ws = [] #W built from fused CSMs/SSMs
@@ -283,7 +283,10 @@ def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
         (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
         plt.imshow(D, interpolation = 'none')
         plt.title("Fused Score = %g"%maxD)
-    return _SequenceAlignment.swalignimpconstrained(DBinary)
+    return {'score':_SequenceAlignment.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary}
+
+def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
+    return getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False)['score']
 
 
 def getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, NIters, CSMTypes):
