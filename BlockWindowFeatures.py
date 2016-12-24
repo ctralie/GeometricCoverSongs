@@ -29,12 +29,13 @@ def getBlockWindowFeatures(args):
     #########################
     #Step 1: Determine which features have been specified and allocate space
     usingMFCC = False
-    [MFCCSamplesPerBlock, DPixels, NGeodesic, NJump, NCurv, NTors, D2Samples] = [-1]*7
+    [MFCCSamplesPerBlock, DPixels, NGeodesic, NJump, NCurv, NTors, NJumpSS, NCurvSS, NTorsSS, D2Samples] = [-1]*10
     #Default parameters
     GeodesicDelta = 10
-    CurvSigma = 40
+    CurvSigmas = [40]
     NMFCC = 20
     MFCCBeatsPerBlock = 20
+    sigmasSS = np.linspace(1, 40, 10) #Scale space sigmas
     NMFCCBlocks = 0
     lifterexp = 0.6
     if 'NMFCC' in FeatureParams:
@@ -58,6 +59,14 @@ def getBlockWindowFeatures(args):
         [I, J] = np.meshgrid(np.arange(DPixels), np.arange(DPixels))
         BlockFeatures['SSMs'] = SSMs = np.zeros((NMFCCBlocks, NPixels), dtype = np.float32)
         usingMFCC = True
+    if 'sigmasSS' in FeatureParams:
+        sigmasSS = FeatureParams['sigmasSS']
+        usingMFCC = True
+    if 'CurvSigmas' in FeatureParams:
+        CurvSigmas = FeatureParams['CurvSigmas']
+        usingMFCC = True
+
+    #Geodesic/jump/curvature/torsion
     if 'GeodesicDelta' in FeatureParams:
         GeodesicDelta = FeatureParams['GeodesicDelta']
         usingMFCC = True
@@ -67,22 +76,38 @@ def getBlockWindowFeatures(args):
         usingMFCC = True
     if 'NJump' in FeatureParams:
         NJump = FeatureParams['NJump']
-        BlockFeatures['Jumps'] = np.zeros((NMFCCBlocks, NJump), dtype = np.float32)
+        for sigma in CurvSigmas:
+            BlockFeatures['Jumps%g'%sigma] = np.zeros((NMFCCBlocks, NJump), dtype = np.float32)
         usingMFCC = True
     if 'NCurv' in FeatureParams:
         NCurv = FeatureParams['NCurv']
-        BlockFeatures['Curvs'] = np.zeros((NMFCCBlocks, NCurv), dtype = np.float32)
+        for sigma in CurvSigmas:
+            BlockFeatures['Curvs%g'%sigma] = np.zeros((NMFCCBlocks, NCurv), dtype = np.float32)
         usingMFCC = True
     if 'NTors' in FeatureParams:
         NTors = FeatureParams['NTors']
-        BlockFeatures['Tors'] = np.zeros((NMFCCBlocks, NTors), dtype = np.float32)
+        for sigma in CurvSigmas:
+            BlockFeatures['Tors%g'%sigma] = np.zeros((NMFCCBlocks, NTors), dtype = np.float32)
         usingMFCC = True
+
+    #Scale space stuff
+    if 'NCurvSS' in FeatureParams:
+        NCurvSS = FeatureParams['NCurvSS']
+        BlockFeatures['CurvsSS'] = np.zeros((NMFCCBlocks, NCurvSS*len(sigmasSS)), dtype = np.float32)
+        usingMFCC = True
+    if 'NTorsSS' in FeatureParams:
+        NTorsSS = FeatureParams['NTorsSS']
+        BlockFeatures['TorsSS'] = np.zeros((NMFCCBlocks, NTorsSS*len(sigmasSS)), dtype = np.float32)
+        usingMFCC = True
+    if 'NJumpSS' in FeatureParams:
+        NJumpSS = FeatureParams['NJumpSS']
+        BlockFeatures['JumpsSS'] = np.zeros((NMFCCBlocks, NJumpSS*len(sigmasSS)), dtype = np.float32)
+        usingMFCC = True
+
+
     if 'D2Samples' in FeatureParams:
         D2Samples = FeatureParams['D2Samples']
         BlockFeatures['D2s'] = np.zeros((NMFCCBlocks, D2Samples), dtype = np.float32)
-        usingMFCC = True
-    if 'CurvSigma' in FeatureParams:
-        CurvSigma = FeatureParams['CurvSigma']
         usingMFCC = True
 
     #Step 3: Compute Mel-Spaced log STFTs
@@ -140,15 +165,43 @@ def getBlockWindowFeatures(args):
         elif NJump > -1:
             MaxOrder = 1
         if MaxOrder > 0:
-            curvs = getCurvVectors(xn, MaxOrder, CurvSigma)
-            if MaxOrder > 2:
-                tors = np.sqrt(np.sum(curvs[3]**2, 1))
-                BlockFeatures['Tors'][i, :] = signal.resample(tors, NTors)
-            if MaxOrder > 1:
-                curv = np.sqrt(np.sum(curvs[2]**2, 1))
-                BlockFeatures['Curvs'][i, :] = signal.resample(curv, NCurv)
-            jump = np.sqrt(np.sum(curvs[1]**2, 1))
-            BlockFeatures['Jumps'][i, :] = signal.resample(jump, NJump)
+            for sigma in CurvSigmas:
+                curvs = getCurvVectors(xn, MaxOrder, sigma)
+                if MaxOrder > 2 and NTors > -1:
+                    tors = np.sqrt(np.sum(curvs[3]**2, 1))
+                    BlockFeatures['Tors%g'%sigma][i, :] = signal.resample(tors, NTors)
+                if MaxOrder > 1 and NCurv > -1:
+                    curv = np.sqrt(np.sum(curvs[2]**2, 1))
+                    BlockFeatures['Curvs%g'%sigma][i, :] = signal.resample(curv, NCurv)
+                if NJump > -1:
+                    jump = np.sqrt(np.sum(curvs[1]**2, 1))
+                    BlockFeatures['Jumps%g'%sigma][i, :] = signal.resample(jump, NJump)
+
+        #Compute curvature/torsion scale space
+        MaxOrder = 0
+        if NTorsSS > -1:
+            MaxOrder = 3
+        elif NCurvSS > -1:
+            MaxOrder = 2
+        elif NJumpSS > -1:
+            MaxOrder = 1
+        if MaxOrder > 0:
+            SSImages = getMultiresCurvatureImages(xn, MaxOrder, sigmasSS)
+            if len(SSImages) >= 3 and NTorsSS > -1:
+                TSS = SSImages[2]
+                TSS = scipy.misc.imresize(TSS, (len(sigmasSS), NTorsSS))
+                BlockFeatures['TorsSS'][i, :] = TSS.flatten()
+            if len(SSImages) >= 2 and NCurvSS > -1:
+                CSS = SSImages[1]
+                CSS = scipy.misc.imresize(CSS, (len(sigmasSS), NCurvSS))
+                #plt.imshow(CSS, interpolation = 'none', aspect = 'auto')
+                #plt.show()
+                BlockFeatures['CurvsSS'][i, :] = CSS.flatten()
+            if len(SSImages) >= 1 and NJumpSS > -1:
+                JSS = SSImages[0]
+                JSS = scipy.misc.imresize(JSS, (len(sigmasSS), NJumpSS))
+                BlockFeatures['JumpsSS'][i, :] = JSS.flatten()
+
 
     ###########################
     #  Chroma-Based Features  #
@@ -199,6 +252,8 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias2, hopSize)
     (Features2, O2) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
 
+    print "Feature Types: ", Features1.keys()
+
     Results = {'filename1':filename1, 'filename2':filename2, 'TempoBias1':TempoBias1, 'TempoBias2':TempoBias2, 'hopSize':hopSize, 'FeatureParams':FeatureParams, 'CSMTypes':CSMTypes, 'Kappa':Kappa}
     plt.figure(figsize=(16, 48))
 
@@ -212,5 +267,13 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
     plt.figure(figsize=(16, 16 + 16*len(Features1.keys())))
     score = getCSMSmithWatermanScoresORMerge([Features1, O1, Features2, O2, Kappa, CSMTypes], True)
     plt.savefig("%s_CSM_ORMerged.svg"%fileprefix, dpi=200, bbox_inches='tight')
+
+    #Do cross-similarity fusion
+    plt.clf()
+    K = 20
+    NIters = 3
+    res = getCSMSmithWatermanScoresEarlyFusionFull([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], True)
+    Results['CSMFused'] = res['CSM']
+    plt.savefig("%s_CSM_Fused.svg"%fileprefix, dpi=200, bbox_inches='tight')
 
     sio.savemat("%s.mat"%fileprefix, Results)

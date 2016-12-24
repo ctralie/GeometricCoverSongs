@@ -149,7 +149,7 @@ def doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa,
     Results = {'Params':FeatureParams, 'hopSize':hopSize, 'TempoBiases':TempoBiases, 'Kappa':Kappa, 'CSMTypes':CSMTypes}
 
     K = 20
-    NIters = 10
+    NIters = 3
     print "Scoring early fusion of ", AllFeatures[0][0].keys()
     (Scores, BestTempos) = getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, NIters, CSMTypes)
 
@@ -168,19 +168,29 @@ def doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa,
 #############################################################################
 
 if __name__ == '__main__':
-    Kappa = 0.05
+    Kappa = 0.1
     hopSize = 512
     TempoBiases = [60, 120, 180]
 
     #FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':40, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10, 'NGeodesics':400, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
 
-    FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':50, 'MFCCBeatsPerBlock':20}
+    #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':50, 'MFCCBeatsPerBlock':20}
+    #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'NCurv':400, 'NTors':400}
+    CurvSigmas = [10, 60]
+    FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'CurvSigmas':CurvSigmas}
 
     #What types of cross-similarity should be used to compare different blocks for different feature types
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+    for sigma in CurvSigmas:
+        CSMTypes['Jumps%g'%sigma] = 'Euclidean'
+        CSMTypes['Curvs%g'%sigma] = 'Euclidean'
+        CSMTypes['Tors%g'%sigma] = 'Euclidean'
 
     fout = open("results.html", "a")
+
     doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat", fout)
+    #doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat", fout)
+
     fout.close()
 
 if __name__ == '__main__2':
@@ -205,8 +215,15 @@ if __name__ == '__main__2':
     #fileprefix = "BlurredLines"
 
     #FeatureParams = {'DPixels':200, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':20, 'D2Samples':40, 'MFCCSamplesPerBlock':200, 'GeodesicDelta':10, 'NGeodesic':400, 'lifterexp':0.6, 'MFCCBeatsPerBlock':12, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
-    FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':200, 'MFCCBeatsPerBlock':20}
+    #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':200, 'MFCCBeatsPerBlock':20}
 
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+    CurvSigmas = [10, 60]
+    FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
+
+    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'JumpsSS':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+    for sigma in CurvSigmas:
+        CSMTypes['Jumps%g'%sigma] = 'Euclidean'
+        CSMTypes['Curvs%g'%sigma] = 'Euclidean'
+        CSMTypes['Tors%g'%sigma] = 'Euclidean'
 
     compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix)

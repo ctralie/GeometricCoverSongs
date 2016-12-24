@@ -145,8 +145,9 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
     return doSimilarityFusionWs(Ws, K, NIters, reg, PlotNames)
 
 if __name__ == '__main__':
-    X = sio.loadmat('Scores4.mat')
-    PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
+    X = sio.loadmat('Scores7.mat')
+    #PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
+    PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
     Scores = [X[s] for s in PlotNames]
     for i in range(len(Scores)):
         Scores[i] = 1.0/Scores[i]
@@ -155,5 +156,5 @@ if __name__ == '__main__':
 
     FusedScores = doSimilarityFusion(Scores, W, 20, 1, PlotNames)
     fout = open("resultsFusion.html", "a")
-    getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 25, 50, 100], fout, name = "SSMs/MFCCs/HPCP/CENS, 20NN, 1Reg")
+    getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 25, 50, 100], fout, name = "Jumps10/Jumps60/Curvs60, 20NN, 1Reg")
     fout.close()

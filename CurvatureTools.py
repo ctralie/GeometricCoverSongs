@@ -54,6 +54,17 @@ def getScaleSpaceImages(X, MaxOrder, sigmas, byArcLength = False):
                 SSImages[i][s, Crossings[i]] = 1.0
     return SSImages
 
+def getMultiresCurvatureImages(X, MaxOrder, sigmas, byArcLength = False):
+    NSigmas = len(sigmas)
+    SSImages = []
+    for i in range(MaxOrder):
+        SSImages.append(np.zeros((NSigmas, X.shape[0])))
+    for s in range(len(sigmas)):
+        Curvs = getCurvVectors(X, MaxOrder, sigmas[s])
+        for i in range(MaxOrder):
+            SSImages[i][s, :] = np.sqrt(np.sum(Curvs[i+1]**2, 1))
+    return SSImages
+
 #A class for doing animation of curvature scale space images
 #for 2D/3D curves
 class CSSAnimator(animation.FuncAnimation):
@@ -136,16 +147,14 @@ if __name__ == '__main__':
     Y = np.array(X, dtype=np.float32)
     sigmas = np.linspace(10, 200, 200)
 
-    SSImages = getScaleSpaceImages(Y, 2, sigmas)
-    S = np.cumsum(SSImages[1], 1)
-    S = np.cumsum(S, 0)
-    plt.imshow(S)
-    plt.show()
-    #X = np.zeros((Y.shape[0], 3))
-    #X[:, 0:2] = Y
-    #R = np.random.randn(3, 3)
-    #[U, S, V] = np.linalg.svd(R)
-    #X = X.dot(U)
+    sigma = 10
+    #SSImages = getScaleSpaceImages(Y, 2, sigmas)
+    SSImages = getMultiresCurvatureImages(Y, 2, np.array([sigma]))
 
-    #fig = plt.figure()
-    #ani = CSSAnimator(fig, X, sigmas, "out.mp4", loop = True)
+    curvs = getCurvVectors(Y, 2, sigma)
+    C = np.sqrt(np.sum(curvs[2]**2, 1)).flatten()
+    plt.plot(C, SSImages[1].flatten(), '.')
+    plt.show()
+
+    # #fig = plt.figure()
+    # #ani = CSSAnimator(fig, X, sigmas, "out.mp4", loop = True)
