@@ -2,83 +2,88 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
+import scipy.io as sio
+from scipy import sparse
+import time
 
 from CSMSSMTools import *
+from SimilarityFusion import *
 
-if __name__ == '__main__':
-    zeroReturn = False
-    N = 100
-    t = np.linspace(0, 2*np.pi, N)
+def getDiffusionMap(SSM, Kappa, t = -1, includeDiag = True, thresh = 5e-4, NEigs = 51):
+    """
+    :param SSM: Metric between all pairs of points
+    :param Kappa: Number in (0, 1) indicating a fraction of nearest neighbors
+                used to autotune neighborhood size
+    :param 
+    """
+    N = SSM.shape[0]
+    #Use the letters from the delaPorte paper
+    K = getW(SSM, int(Kappa*N))
+    if not includeDiag:
+        np.fill_diagonal(K, np.zeros(N))
+    RowSumSqrt = np.sqrt(np.sum(K, 1))
+    DInvSqrt = sparse.diags([1/RowSumSqrt], [0])
+
+    #Symmetric normalized Laplacian
+    Pp = (K/RowSumSqrt[None, :])/RowSumSqrt[:, None]
+    Pp[Pp < thresh] = 0
+    Pp = sparse.csr_matrix(Pp)
+
+    lam, X = sparse.linalg.eigsh(Pp, NEigs, which='LM')
+    lam = lam/lam[-1] #In case of numerical instability
+
+    #Check to see if autotuning
+    if t > -1:
+        lamt = lam**t
+    else:
+        #Autotuning diffusion time
+        lamt = np.array(lam)
+        lamt[0:-1] = lam[0:-1]/(1-lam[0:-1])
+
+    #Do eigenvector version
+    V = DInvSqrt.dot(X) #Right eigenvectors
+    M = V*lamt[None, :]
+    return M/RowSumSqrt[:, None] #Put back into orthogonal Euclidean coordinates
+
+def getPinchedCircle(N):
+    t = np.linspace(0, 2*np.pi, N+1)[0:N]
     x = np.zeros((N, 2))
-#    x[:, 0] = np.cos(t)
-#    x[:, 1] = np.sin(t)
     x[:, 0] = (1.5 + np.cos(2*t))*np.cos(t)
     x[:, 1] = (1.5 + np.cos(2*t))*np.sin(t)
-    [SSM, _] = getSSM(x, N)
+    return x
 
-    sigma = 0.5
-    K = np.exp(-SSM**2/sigma**2)
-    if not zeroReturn:
-        np.fill_diagonal(K, np.zeros(K.shape[0])) #Make the diagonal zero
+def getTorusKnot(N, p, q):
+    t = np.linspace(0, 2*np.pi, N+1)[0:N]
+    X = np.zeros((N, 3))
+    r = np.cos(q*t) + 2
+    X[:, 0] = r*np.cos(p*t)
+    X[:, 1] = r*np.sin(p*t)
+    X[:, 2] = -np.sin(q*t)
+    return X
 
-    KSum = np.sum(K, 1)
-    KSum[KSum == 0] = 1
-    DInvK = np.zeros((N, N))
-    np.fill_diagonal(DInvK, 1/KSum)
-    DInvK = np.dot(DInvK, K)
-    #Make symmetric matrix
-    Alpha = K / np.sqrt(KSum[None, :]*KSum[:, None])
+if __name__ == '__main__':
+    zeroReturn = True
+    N = 1000
+    X = getTorusKnot(N, 2, 5)
+    sio.savemat("X.mat", {"X":X})
+    tic = time.time()
+    [SSM, _] = getSSM(X, N)
+    toc = time.time()
+    print "Elapsed time SSM: ", toc - tic
+    Kappa = 0.02
 
-    c = plt.get_cmap('jet')
-    C = c(np.array(np.round(np.linspace(0, 255, N)), dtype=np.int32))
-    C = C[:, 0:3]
+    t = -1
+    plt.clf()
+    tic = time.time()
+    M = getDiffusionMap(SSM, Kappa, t)
+    toc = time.time()
+    print "Total time diffusion: ", toc-tic
+    (SSM, _) = getSSM(M, N)
+    plt.subplot(121)
+    plt.plot(M[:, -3], M[:, -2], '.')
+    plt.axis('equal')
+    plt.subplot(122)
+    plt.imshow(SSM)
+    plt.savefig("Diffusion%i.png"%t)
 
-    w, v = np.linalg.eig(Alpha)
-    plt.plot(np.real(w), 'r')
-    plt.hold(True)
-    plt.plot(np.imag(w), 'b')
-    plt.show()
-    w = np.real(w)
-    v = np.real(v)
-    pca = PCA(n_components=3)
-    NEigs = 100
-    for t in range(1, 15):
-        fig = plt.figure()
-
-        #Use the eigenvector method
-        lambdas = w**t
-        Y1 = lambdas[None, 0:NEigs]*v[:, 0:NEigs]
-        [D1, _] = getSSM(Y1, N)
-        Y1 = pca.fit_transform(Y1)
-
-        #Do it out manually
-        Y2 = np.eye(N)
-        for k in range(t):
-            Y2 = Y2.dot(DInvK)
-        [D2, _] = getSSM(Y2, N)
-        Y2 = pca.fit_transform(Y2)
-
-
-        ax = fig.add_subplot(231, projection = '3d')
-        ax.set_title("t = %i"%t)
-        ax.scatter(Y1[:, 0], Y1[:, 1], Y1[:, 2], c=C)
-        ax.set_aspect('equal', 'datalim')
-        plt.subplot(232)
-        plt.imshow(D1)
-        plt.title('Eigenvector Method')
-
-        plt.subplot(233)
-        plt.scatter(x[:, 0], x[:, 1], c=C)
-        plt.title('Original Curve')
-        plt.subplot(236)
-        plt.imshow(SSM)
-        plt.title('Original SSM')
-
-        ax = fig.add_subplot(234, projection = '3d')
-        ax.scatter(Y2[:, 0], Y2[:, 1], Y2[:, 2], c=C)
-        ax.set_aspect('equal', 'datalim')
-        plt.subplot(235)
-        plt.imshow(D2)
-        plt.title('Brute Force Method')
-
-        plt.savefig("Diffusion%i.svg"%t, bbox_inches='tight')
+    sio.savemat("X.mat", {"X":X, "M":M})

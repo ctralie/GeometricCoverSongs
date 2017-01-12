@@ -167,7 +167,7 @@ def doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa,
 ## Entry points for running the experiments
 #############################################################################
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     Kappa = 0.1
     hopSize = 512
     TempoBiases = [60, 120, 180]
@@ -193,7 +193,7 @@ if __name__ == '__main__':
 
     fout.close()
 
-if __name__ == '__main__2':
+if __name__ == '__main__':
     Kappa = 0.1
     hopSize = 512
     TempoBias1 = 180

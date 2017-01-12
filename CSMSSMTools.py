@@ -9,10 +9,16 @@ import scipy.misc
 import time
 from multiprocessing import Pool as PPool
 
-#Get a self-similarity matrix
-def getSSM(x, DPixels, doPlot = False):
-    D = np.sum(x**2, 1)[:, None]
-    D = D + D.T - 2*x.dot(x.T)
+def getSSM(X, DPixels, doPlot = False):
+    """
+    Compute a Euclidean self-similarity image between a set of points
+    :param X: An Nxd matrix holding the d coordinates of N points
+    :param DPixels: The image will be resized to this dimensions
+    :param doPlot: If true, show a plot comparing the original/resized images
+    :return: A tuple (D, DResized)
+    """
+    D = np.sum(X**2, 1)[:, None]
+    D = D + D.T - 2*X.dot(X.T)
     D[D < 0] = 0
     D = 0.5*(D + D.T)
     D = np.sqrt(D)
@@ -26,11 +32,32 @@ def getSSM(x, DPixels, doPlot = False):
         return (D, scipy.misc.imresize(D, (DPixels, DPixels)))
     return (D, D)
 
+def getSSMAltMetric(X, A, DPixels, doPlot = False):
+    """
+    Compute a self-similarity matrix under an alternative metric specified
+    by the symmetric positive definite matrix A^TA, so that the squared
+    Euclidean distance under this metric between two vectors x and y is
+    (x-y)^T*A^T*A*(x-y)
+    :param X: An Nxd matrix holding the d coordinates of N points
+    :param DPixels: The image will be resized to this dimensions
+    :param doPlot: If true, show a plot comparing the original/resized images
+    :return: A tuple (D, DResized)
+    """
+    X2 = X.dot(A.T)
+    return getSSM(X2, DPixels, doPlot)
+
 #############################################################################
 ## Code for dealing with cross-similarity matrices
 #############################################################################
 
 def getCSM(X, Y):
+    """
+    Return the Euclidean cross-similarity matrix between the M points
+    in the Mxd matrix X and the N points in the Nxd matrix Y.
+    :param X: An Mxd matrix holding the coordinates of M points
+    :param Y: An Nxd matrix holding the coordinates of N points
+    :return D: An MxN Euclidean cross-similarity matrix
+    """
     C = np.sum(X**2, 1)[:, None] + np.sum(Y**2, 1)[None, :] - 2*X.dot(Y.T)
     C[C < 0] = 0
     return np.sqrt(C)
@@ -57,9 +84,11 @@ def getCSMCosine(X, Y):
     D = 1 - D #Make sure distance 0 is the same and distance 2 is the most different
     return D
 
-#Get the optimial transposition of the first chroma vector
-#with respet to the second one
 def getOTI(C1, C2, doPlot = False):
+    """
+    Get the optimial transposition of the first chroma vector
+    with respet to the second one
+    """
     NChroma = len(C1)
     shiftScores = np.zeros(NChroma)
     for i in range(NChroma):
@@ -80,11 +109,13 @@ def getCSMCosineOTI(X, Y, C1, C2):
     X1 = np.reshape(X1, [X.shape[0], ChromasPerBlock*NChromaBins])
     return getCSMCosine(X1, Y)
 
-#Turn a cross-similarity matrix into a binary cross-simlarity matrix
-#If Kappa = 0, take all neighbors
-#If Kappa < 1 it is the fraction of mutual neighbors to consider
-#Otherwise Kappa is the number of mutual neighbors to consider
 def CSMToBinary(D, Kappa):
+    """
+    Turn a cross-similarity matrix into a binary cross-simlarity matrix
+    If Kappa = 0, take all neighbors
+    If Kappa < 1 it is the fraction of mutual neighbors to consider
+    Otherwise Kappa is the number of mutual neighbors to consider
+    """
     N = D.shape[0]
     M = D.shape[1]
     if Kappa == 0:
@@ -93,20 +124,21 @@ def CSMToBinary(D, Kappa):
         NNeighbs = int(np.round(Kappa*M))
     else:
         NNeighbs = Kappa
-    cols = np.argsort(D, 1)
-    temp, rows = np.meshgrid(np.arange(M), np.arange(N))
-    cols = cols[:, 0:NNeighbs].flatten()
-    rows = rows[:, 0:NNeighbs].flatten()
-    ret = np.zeros((N, M))
-    ret[rows, cols] = 1
-    return ret
+    J = np.argpartition(D, NNeighbs, 1)[:, 0:NNeighbs]
+    I = np.tile(np.arange(N)[:, None], (1, NNeighbs))
+    V = np.ones(I.size)
+    [I, J] = [I.flatten(), J.flatten()]
+    ret = sparse.coo_matrix((V, (I, J)), shape=(N, M))
+    return ret.toarray()
 
-#Take the binary AND between the nearest neighbors in one direction
-#and the other
 def CSMToBinaryMutual(D, Kappa):
+    """
+    Take the binary AND between the nearest neighbors in one direction
+    and the other
+    """
     B1 = CSMToBinary(D, Kappa)
-    B2 = CSMToBinary(D.T, Kappa)
-    return B1*B2.T
+    B2 = CSMToBinary(D.T, Kappa).T
+    return B1*B2
 
 def getCSMType(Features1, O1, Features2, O2, Type):
     if Type == "Euclidean":
@@ -124,11 +156,14 @@ def getCSMType(Features1, O1, Features2, O2, Type):
 ######################################################
 ##      Ordinary CSM and Smith Waterman Tests       ##
 ######################################################
-#Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
-#computing of all of the smith waterman scores for a pair of songs.
-#Features1 and Features2 are Mxk and Nxk matrices of features, respectively
-#The type of cross-similarity can also be specified
+
 def getCSMSmithWatermanScores(args, doPlot = False):
+    """
+    Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
+    computing of all of the smith waterman scores for a pair of songs.
+    Features1 and Features2 are Mxk and Nxk matrices of features, respectively
+    The type of cross-similarity can also be specified
+    """
     [Features1, O1, Features2, O2, Kappa, Type] = args
     CSM = getCSMType(Features1, O1, Features2, O2, Type)
     DBinary = CSMToBinaryMutual(CSM, Kappa)
@@ -145,10 +180,14 @@ def getCSMSmithWatermanScores(args, doPlot = False):
         plt.title("Smith Waterman Score = %g"%maxD)
     return _SequenceAlignment.swalignimpconstrained(DBinary)
 
-#Features: An array of arrays of features at different tempo levels: [[Tempolevel1Features1, Tempolevel1Feature2, ...], [TempoLevel2Features1, TempoLevel2Features2]]
-#Returns: NxN array of scores, and corresponding NxNx2 array
-#of the best tempo indices
 def getScores(Features, OtherFeatures, Kappa, CSMType):
+    """
+    Features: An array of arrays of features at different tempo levels:
+    [[Tempolevel1Features1, Tempolevel1Feature2, ...],
+    [TempoLevel2Features1, TempoLevel2Features2]]
+    Returns: NxN array of scores, and corresponding NxNx2 array
+    of the best tempo indices
+    """
     NTempos = len(Features)
     parpool = PPool(processes = 8)
     N = len(Features[0])
@@ -259,7 +298,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False):
     DBinary = CSMToBinaryMutual(np.exp(-CSM), Kappa)
 
     if doPlot:
-        print "Elapsed Time: ", t1
+        print "Elapsed Time Similarity Fusion: ", t1
         N = len(CSMs)
         for i in range(N):
             plt.subplot(3, N+1, i+1)

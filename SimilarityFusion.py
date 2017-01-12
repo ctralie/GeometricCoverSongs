@@ -13,16 +13,26 @@ from EvalStatistics import *
 #Affinity matrix
 def getW(D, K, Mu = 0.5):
     #W(i, j) = exp(-Dij^2/(mu*epsij))
+    tic = time.time()
     DSym = 0.5*(D + D.T)
     np.fill_diagonal(DSym, 0)
+    toc = time.time()
+    print "Elapsed time DSym: ", toc-tic
 
-    Neighbs = np.sort(DSym, 1)[:, 1:K+1]
-    MeanDist = np.mean(Neighbs, 1)
+    tic = time.time()
+    Neighbs = np.partition(DSym, K+1, 1)[:, 0:K+1]
+    MeanDist = np.mean(Neighbs, 1)*float(K+1)/float(K) #Need this trick to
+    #exclude diagonal element
+    toc = time.time()
+    print "Elapsed time neighbors: ", toc-tic
     #Equation 1 in SNF paper [2] for estimating local neighborhood radii
     #by looking at k nearest neighbors, not including point itself
+    tic = time.time()
     Eps = MeanDist[:, None] + MeanDist[None, :] + DSym
     Eps = Eps/3
-    W = np.exp(-DSym**2/(2*(Mu*Eps)**2))#/(Mu*Eps*np.sqrt(2*np.pi))
+    W = np.exp(-DSym**2/(2*(Mu*Eps)**2))
+    toc = time.time()
+    print "Elapsed time W: ", toc-tic
     return W
 
 #Cross-Affinity Matrix.  Do a special weighting of nearest neighbors
@@ -77,16 +87,16 @@ def getP(W, diagRegularize = False):
 #(**note that nearest neighbors here include the element itself)
 def getS(W, K):
     N = W.shape[0]
-    J = np.argsort(-W, 1)[:, 0:K]
+    J = np.argpartition(-W, K, 1)[:, 0:K]
     I = np.tile(np.arange(N)[:, None], (1, K))
-    I = I.flatten()
-    J = J.flatten()
-    V = W[I, J]
-    S = sparse.coo_matrix((V, (I, J)), shape=(N, N)).tocsr()
-    S = S.toarray()
-    SNorm = np.sum(S, 1)
+    V = W[I.flatten(), J.flatten()]
+    #Now figure out L1 norm of each row
+    V = np.reshape(V, J.shape)
+    SNorm = np.sum(V, 1)
     SNorm[SNorm == 0] = 1
-    S = S/SNorm[:, None]
+    V = V/SNorm[:, None]
+    [I, J, V] = [I.flatten(), J.flatten(), V.flatten()]
+    S = sparse.coo_matrix((V, (I, J)), shape=(N, N)).tocsr()
     return S
 
 
@@ -96,7 +106,8 @@ def getS(W, K):
 #reg: Identity matrix regularization parameter for self-similarity promotion
 #PlotNames: Strings describing different similarity measurements.
 #If this array is specified, an animation will be saved of the cross-diffusion process
-def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = []):
+def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verboseTimes = False):
+    tic = time.time()
     #Full probability matrices
     Ps = [getP(W) for W in Ws]
     #Nearest neighbor truncated matrices
@@ -105,7 +116,11 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = []):
     #Now do cross-diffusion iterations
     Pts = [np.array(P) for P in Ps]
     nextPts = [np.zeros(P.shape) for P in Pts]
+    if verboseTimes:
+        print "Time getting Ss and Ps: ", time.time() - tic
+
     N = len(Pts)
+    AllTimes = []
     for it in range(NIters):
         if len(PlotNames) == N:
             k = int(np.ceil(np.sqrt(N)))
@@ -122,17 +137,31 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = []):
             plt.savefig("SSMFusion%i.png"%it, dpi=150, bbox_inches='tight')
         for i in range(N):
             nextPts[i] *= 0
+            tic = time.time()
             for k in range(N):
                 if i == k:
                     continue
                 nextPts[i] += Pts[k]
             nextPts[i] /= float(N-1)
-            nextPts[i] = Ss[i].dot(nextPts[i].dot(Ss[i].T))
+
+            #tic = time.time()
+            #nextPts[i] = SsD[i].dot(nextPts[i].dot(SsD[i].T))
+            #toc = time.time()
+            #print toc - tic, " ",
+
+            #Need S*P*S^T, but have to multiply sparse matrix on the left
+            tic = time.time()
+            A = Ss[i].dot(nextPts[i].T)
+            nextPts[i] = Ss[i].dot(A.T)
+            toc = time.time()
+            AllTimes.append(toc - tic)
+
             if reg > 0:
                 nextPts[i] += reg*np.eye(nextPts[i].shape[0])
-            toc = time.time()
-        Pts = nextPts
 
+        Pts = nextPts
+    if verboseTimes:
+        print "Total Time multiplying: ", np.sum(np.array(AllTimes))
     FusedScores = np.zeros(Pts[0].shape)
     for Pt in Pts:
         FusedScores += Pt
@@ -146,8 +175,8 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
 
 if __name__ == '__main__':
     X = sio.loadmat('Scores7.mat')
-    #PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
-    PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
+    PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
+    #PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
     Scores = [X[s] for s in PlotNames]
     for i in range(len(Scores)):
         Scores[i] = 1.0/Scores[i]

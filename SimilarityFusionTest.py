@@ -98,6 +98,6 @@ if __name__ == '__main__':
     Features2 = Features2b
     Kappa = 0.1
     K = 20
-    NIters = 20
+    NIters = 3
     getCSMSmithWatermanScoresEarlyFusion([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], doPlot = True)
     plt.show()
