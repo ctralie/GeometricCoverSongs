@@ -10,29 +10,24 @@ import time
 import os
 from EvalStatistics import *
 
-#Affinity matrix
 def getW(D, K, Mu = 0.5):
+    """
+    Return affinity matrix
+    :param D: Self-similarity matrix
+    :param K: Number of nearest neighbors
+    """
     #W(i, j) = exp(-Dij^2/(mu*epsij))
-    tic = time.time()
     DSym = 0.5*(D + D.T)
     np.fill_diagonal(DSym, 0)
-    toc = time.time()
-    print "Elapsed time DSym: ", toc-tic
 
-    tic = time.time()
     Neighbs = np.partition(DSym, K+1, 1)[:, 0:K+1]
-    MeanDist = np.mean(Neighbs, 1)*float(K+1)/float(K) #Need this trick to
-    #exclude diagonal element
-    toc = time.time()
-    print "Elapsed time neighbors: ", toc-tic
+    MeanDist = np.mean(Neighbs, 1)*float(K+1)/float(K) #Need this scaling
+    #to exclude diagonal element in mean
     #Equation 1 in SNF paper [2] for estimating local neighborhood radii
     #by looking at k nearest neighbors, not including point itself
-    tic = time.time()
     Eps = MeanDist[:, None] + MeanDist[None, :] + DSym
     Eps = Eps/3
     W = np.exp(-DSym**2/(2*(Mu*Eps)**2))
-    toc = time.time()
-    print "Elapsed time W: ", toc-tic
     return W
 
 #Cross-Affinity Matrix.  Do a special weighting of nearest neighbors
@@ -49,9 +44,10 @@ def getWCSMSSM(SSMA, SSMB, CSMAB, K, Mu = 0.5):
     WSSMA = getW(SSMA, k1, Mu)
     WSSMB = getW(SSMB, k2, Mu)
 
-    Neighbs1 = np.sort(CSMAB, 1)[:, 0:k2]
+    Neighbs1 = np.partition(CSMAB, k2, 1)[:, 0:k2]
     MeanDist1 = np.mean(Neighbs1, 1)
-    Neighbs2 = np.sort(CSMAB, 0)[0:k1, :]
+
+    Neighbs2 = np.partition(CSMAB, k1, 0)[0:k1, :]
     MeanDist2 = np.mean(Neighbs2, 0)
     Eps = MeanDist1[:, None] + MeanDist2[None, :] + CSMAB
     Eps /= 3

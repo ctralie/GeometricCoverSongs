@@ -167,7 +167,7 @@ def doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa,
 ## Entry points for running the experiments
 #############################################################################
 
-if __name__ == '__main__2':
+if __name__ == '__main__':
     Kappa = 0.1
     hopSize = 512
     TempoBiases = [60, 120, 180]
@@ -177,10 +177,11 @@ if __name__ == '__main__2':
     #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':50, 'MFCCBeatsPerBlock':20}
     #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'NCurv':400, 'NTors':400}
     CurvSigmas = [10, 60]
-    FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'CurvSigmas':CurvSigmas}
+    #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'CurvSigmas':CurvSigmas}
+    FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50, 'DiffusionKappa':0.1, 'tDiffusion':-1}
 
     #What types of cross-similarity should be used to compare different blocks for different feature types
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
     for sigma in CurvSigmas:
         CSMTypes['Jumps%g'%sigma] = 'Euclidean'
         CSMTypes['Curvs%g'%sigma] = 'Euclidean'
@@ -188,12 +189,12 @@ if __name__ == '__main__2':
 
     fout = open("results.html", "a")
 
-    doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat", fout)
-    #doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat", fout)
+    #doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat", fout)
+    doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat", fout)
 
     fout.close()
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     Kappa = 0.1
     hopSize = 512
     TempoBias1 = 180
@@ -218,9 +219,9 @@ if __name__ == '__main__':
     #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':200, 'MFCCBeatsPerBlock':20}
 
     CurvSigmas = [10, 60]
-    FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
+    FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DiffusionKappa':0.1, 'tDiffusion':-1}
 
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'JumpsSS':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
     for sigma in CurvSigmas:
         CSMTypes['Jumps%g'%sigma] = 'Euclidean'
         CSMTypes['Curvs%g'%sigma] = 'Euclidean'

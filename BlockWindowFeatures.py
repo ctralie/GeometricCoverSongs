@@ -10,6 +10,7 @@ import pickle
 import matplotlib.pyplot as plt
 from CSMSSMTools import *
 from CurvatureTools import *
+from SpectralMethods import *
 from MusicFeatures import *
 import librosa
 import subprocess
@@ -29,7 +30,7 @@ def getBlockWindowFeatures(args):
     #########################
     #Step 1: Determine which features have been specified and allocate space
     usingMFCC = False
-    [MFCCSamplesPerBlock, DPixels, NGeodesic, NJump, NCurv, NTors, NJumpSS, NCurvSS, NTorsSS, D2Samples] = [-1]*10
+    [MFCCSamplesPerBlock, DPixels, NGeodesic, NJump, NCurv, NTors, NJumpSS, NCurvSS, NTorsSS, D2Samples, DiffusionKappa, tDiffusion] = [-1]*12
     #Default parameters
     GeodesicDelta = 10
     CurvSigmas = [40]
@@ -57,8 +58,13 @@ def getBlockWindowFeatures(args):
         DPixels = FeatureParams['DPixels']
         NPixels = DPixels*(DPixels-1)/2
         [I, J] = np.meshgrid(np.arange(DPixels), np.arange(DPixels))
-        BlockFeatures['SSMs'] = SSMs = np.zeros((NMFCCBlocks, NPixels), dtype = np.float32)
+        BlockFeatures['SSMs'] = np.zeros((NMFCCBlocks, NPixels), dtype = np.float32)
+        if 'DiffusionKappa' in FeatureParams:
+            DiffusionKappa = FeatureParams['DiffusionKappa']
+            BlockFeatures['SSMsDiffusion'] = np.zeros((NMFCCBlocks, NPixels), dtype = np.float32)
         usingMFCC = True
+    if 'tDiffusion' in FeatureParams:
+        tDiffusion = FeatureParams['tDiffusion']
     if 'sigmasSS' in FeatureParams:
         sigmasSS = FeatureParams['sigmasSS']
         usingMFCC = True
@@ -142,6 +148,11 @@ def getBlockWindowFeatures(args):
             (DOrig, D) = getSSM(xn, SSMRes)
         if DPixels > -1:
             BlockFeatures['SSMs'][i, :] = D[I < J]
+            if DiffusionKappa > -1:
+                xDiffusion = getDiffusionMap(DOrig, DiffusionKappa, tDiffusion)
+                (_, SSMDiffusion) = getSSM(xDiffusion, SSMRes)
+                BlockFeatures['SSMsDiffusion'][i, :] = SSMDiffusion[I < J]
+
         if D2Samples > -1:
             [IO, JO] = np.meshgrid(np.arange(DOrig.shape[0]), np.arange(DOrig.shape[0]))
             BlockFeatures['D2s'][i, :] = np.histogram(DOrig[IO < JO], bins = D2Samples, range = (0, 2))[0]

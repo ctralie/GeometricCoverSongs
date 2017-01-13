@@ -14,7 +14,12 @@ def getDiffusionMap(SSM, Kappa, t = -1, includeDiag = True, thresh = 5e-4, NEigs
     :param SSM: Metric between all pairs of points
     :param Kappa: Number in (0, 1) indicating a fraction of nearest neighbors
                 used to autotune neighborhood size
-    :param 
+    :param t: Diffusion parameter.  If -1, do Autotuning
+    :param includeDiag: If true, include recurrence to diagonal in the markov
+        chain.  If false, zero out diagonal
+    :param thresh: Threshold below which to zero out entries in markov chain in
+        the sparse approximation
+    :param NEigs: The number of eigenvectors to use in the approximation
     """
     N = SSM.shape[0]
     #Use the letters from the delaPorte paper
@@ -63,7 +68,7 @@ def getTorusKnot(N, p, q):
 
 if __name__ == '__main__':
     zeroReturn = True
-    N = 1000
+    N = 400
     X = getTorusKnot(N, 2, 5)
     sio.savemat("X.mat", {"X":X})
     tic = time.time()
