@@ -32,26 +32,34 @@ def bitonicSort(XG):
     NThreads = min(N2, 512)
     print "N = %i, NPow2 = %i, N2 = %i, NThreads = %i"%(N, NPow2, N2, NThreads)
 
-    tic = time.time()
     bitonicSort_(XG, N, NPow2, block=(NThreads, 1, 1), grid=(X.shape[0], 1), shared=4*NPow2)
-    toc = time.time()
-    print "Elapsed Time Bitonic GPU: ", toc-tic
 
 if __name__ == '__main__':
     initParallelAlgorithms()
     np.random.seed(100)
-    X = np.array(np.random.rand(1000, 1000), dtype=np.float32)
+    N = 1024
+    X = np.array(np.random.rand(N, N), dtype=np.float32)
     XG = gpuarray.to_gpu(X)
 
+    tic = time.time()
     bitonicSort(XG)
+    toc = time.time()
+    GPUTime = toc-tic
 
     tic = time.time()
     X2 = np.sort(X, 1)
     toc = time.time()
-    print "Elapsed Time CPU: ", toc-tic
+    CPUTime = toc-tic
+
+    print("Elapsed Time CPU: %g"%CPUTime)
+    print("Elapsed Time GPU: %g (Ratio %.3g)"%(GPUTime, CPUTime/GPUTime))
 
     plt.subplot(121)
     plt.imshow(X, interpolation = 'none')
     plt.subplot(122)
     plt.imshow(XG.get(), interpolation = 'none')
+    #plt.subplot(133)
+    XDiff = X - XG.get()
+    #plt.imshow(XDiff, interpolation = 'none')
+    #print np.max(XDiff)
     plt.show()

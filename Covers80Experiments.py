@@ -178,7 +178,7 @@ if __name__ == '__main__':
     #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'NCurv':400, 'NTors':400}
     CurvSigmas = [10, 60]
     #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'CurvSigmas':CurvSigmas}
-    FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50, 'DiffusionKappa':0.1, 'tDiffusion':-1}
+    FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50, 'DiffusionKappa':0.1, 'tDiffusion':100}
 
     #What types of cross-similarity should be used to compare different blocks for different feature types
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}

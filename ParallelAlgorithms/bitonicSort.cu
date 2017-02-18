@@ -6,8 +6,7 @@ __global__ void bitonicSort(float* X, int N, int NPow2)
     extern __shared__ float x[];
     int N2 = NPow2 >> 1;
     int offset = blockIdx.x*N;
-    int k = 0;
-    int i, i1, i2;
+    int k, i, i1, i2;
     float min, max;
     int size = 2;
     int stride;
@@ -23,7 +22,8 @@ __global__ void bitonicSort(float* X, int N, int NPow2)
     for (k = 0; k < (K << 1); k++) {
         i1 = k*N2 + threadIdx.x;
         if (i1 < N) {
-            x[i1] = (float)X[offset + i1];
+            x[i1] = X[offset + i1];
+            //x[i1] = (float)K;
         }
         else if (i1 < NPow2) {
             //NOTE: Assuming all numbers are nonnegative
@@ -70,29 +70,7 @@ __global__ void bitonicSort(float* X, int N, int NPow2)
         if (i1 >= N) {
             break;
         }
-        X[offset + (N-i1)] = x[i1];
+        X[offset + (N-i1-1)] = x[i1];
     }
     __syncthreads();
-}
-
-
-__global__ void memtest(float* X, int N, int N2, int K)
-{
-    extern __shared__ float x[];
-    int offset = blockIdx.x*N;
-    int t = threadIdx.x;
-
-    if (t < N) {
-        X[offset+t] = (float)(blockIdx.x + t);
-    }
-
-    //Step 3: Copy Result Back
-    /*for (k = 0; k < 2*K; k++) {
-        i1 = t*2*K+k;
-        if (i1 >= N) {
-            break;
-        }
-        X[t] = t*k;
-    }*/
-
 }
