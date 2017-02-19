@@ -6,6 +6,7 @@ __global__ void bitonicSort(float* X, int N, int NPow2)
     extern __shared__ float x[];
     int N2 = NPow2 >> 1;
     int offset = blockIdx.x*N;
+    int jump = N2;
     int k, i, i1, i2;
     float min, max;
     int size = 2;
@@ -15,15 +16,18 @@ __global__ void bitonicSort(float* X, int N, int NPow2)
     if (K == 0) {
         K = 1;
     }
+    //Step 0.1: Figure out the thread jump
+    if (jump > 512) {
+        jump = 512;
+    }
 
     //Step 1: Copy row corresponding to this block into shared memory
     //bearing in mind that for bitonic sort there are half
     //as many threads as there are numbers in each row
     for (k = 0; k < (K << 1); k++) {
-        i1 = k*N2 + threadIdx.x;
+        i1 = k*jump + threadIdx.x;
         if (i1 < N) {
             x[i1] = X[offset + i1];
-            //x[i1] = (float)K;
         }
         else if (i1 < NPow2) {
             //NOTE: Assuming all numbers are nonnegative
@@ -38,7 +42,7 @@ __global__ void bitonicSort(float* X, int N, int NPow2)
         stride = size >> 1;
         while (stride > 0) {
             for (k = 0; k < K; k++) {
-                i = k*N2 + threadIdx.x;
+                i = k*jump + threadIdx.x;
                 i1 = stride*2*(i/stride) + i%stride;
                 i2 = i1 + stride;
                 if (x[i1] < x[i2]) {
@@ -66,11 +70,11 @@ __global__ void bitonicSort(float* X, int N, int NPow2)
 
     //Step 3: Copy Result Back
     for (k = 0; k < (K << 1); k++) {
-        i1 = k*N2 + threadIdx.x;
+        i1 = k*jump + threadIdx.x;
         if (i1 >= N) {
             break;
         }
-        X[offset + (N-i1-1)] = x[i1];
+        X[offset + (N-1-i1)] = x[i1];
     }
     __syncthreads();
 }

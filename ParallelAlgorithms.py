@@ -4,6 +4,7 @@ import pycuda.gpuarray as gpuarray
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import scipy.io as sio
 
 from pycuda.compiler import SourceModule
 
@@ -28,16 +29,44 @@ def bitonicSort(XG):
     N = np.int32(XG.shape[1])
     NPow2 = np.int32(2**np.ceil(np.log2(N)))
     N2 = NPow2/2
-
     NThreads = min(N2, 512)
-    print "N = %i, NPow2 = %i, N2 = %i, NThreads = %i"%(N, NPow2, N2, NThreads)
+    bitonicSort_(XG, N, NPow2, block=(NThreads, 1, 1), grid=(XG.shape[0], 1), shared=4*NPow2)
 
-    bitonicSort_(XG, N, NPow2, block=(NThreads, 1, 1), grid=(X.shape[0], 1), shared=4*NPow2)
-
-if __name__ == '__main__':
+def testBitonicSortTimeRatios(sizes, NTrials):
     initParallelAlgorithms()
     np.random.seed(100)
-    N = 1024
+    CPUTimes = np.zeros((len(sizes), NTrials))
+    GPUTimes = np.zeros((len(sizes), NTrials))
+    for i in range(len(sizes)):
+        N = sizes[i]
+        for t in range(NTrials):
+            X = np.array(np.random.rand(N, N), dtype=np.float32)
+            XG = gpuarray.to_gpu(X)
+
+            tic = time.time()
+            bitonicSort(XG)
+            toc = time.time()
+            GPUTime = toc-tic
+
+            tic = time.time()
+            X2 = np.sort(X, 1)
+            toc = time.time()
+            CPUTime = toc-tic
+
+            print("N = %i"%N)
+            print("Elapsed Time CPU: %g"%CPUTime)
+            print("Elapsed Time GPU: %g (Ratio %.3g)"%(GPUTime, CPUTime/GPUTime))
+            CPUTimes[i, t] = CPUTime
+            GPUTimes[i, t] = GPUTime
+    sio.savemat("Timings.mat", {"CPUTimes":CPUTimes, "GPUTimes":GPUTimes})
+
+if __name__ == '__main__':
+    testBitonicSortTimeRatios(range(10, 3000, 10), 10)
+
+if __name__ == '__main__2':
+    initParallelAlgorithms()
+    np.random.seed(100)
+    N = 3000
     X = np.array(np.random.rand(N, N), dtype=np.float32)
     XG = gpuarray.to_gpu(X)
 
