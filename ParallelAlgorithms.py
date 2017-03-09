@@ -15,6 +15,7 @@ from pycuda.compiler import SourceModule
 bitonicSort_ = None
 getSumSquares_ = None
 finishCSM_ = None
+CSM = None
 
 def initParallelAlgorithms():
     global bitonicSort_
@@ -96,75 +97,92 @@ def testBitonicSortTimeRatios(sizes, NTrials):
 def roundUpPow2(x):
     return np.array(int(2**np.ceil(np.log2(float(x)))), dtype=np.int32)
 
-def getCSMGPU(XG, YG):
-    #YGT = linalg.transpose(YG)
-    x = 1
-
-def testCSM(M, N, NOthers):
-    X = np.array(np.random.randn(M, 25*25), dtype = np.float32)
-    Y = np.array(np.random.randn(N*NOthers, 25*25), dtype = np.float32)
-
+def getCSMGPU(XG, YG, tic):
+    print "Function call: ", time.time() - tic
     tic = time.time()
-    XG = gpuarray.to_gpu(X)
-    YG = gpuarray.to_gpu(Y)
-    XSqr = gpuarray.to_gpu(np.array(np.zeros(X.shape[0]), dtype=np.float32))
-    YSqr = gpuarray.to_gpu(np.array(np.zeros(Y.shape[0]), dtype=np.float32))
-    toc = time.time()
-    print "GPU Copy Time: ", toc - tic
 
-    tic = time.time()
-    CSM1 = getCSM(Y, X)
-    toc = time.time()
-    CPUTime = toc-tic
+    print time.time() - tic
+    return (time.time(), CSM)
 
-    ticg = time.time()
+def testCSM(M, N, NOthers, dim = 25*25, NTrials = 4, doPlot = True):
+    #Step 0: Setup arrays for sum of squares
+    XSqr = gpuarray.empty(M, np.float32)
+    YSqr = gpuarray.empty(N*NOthers, np.float32)
 
-    #Step 1: Sum of squares across rows
-    dim = np.array(X.shape[1], dtype=np.int32)
-    dimpow2 = roundUpPow2(dim)
-    NThreads = min(dimpow2, 512)
-    getSumSquares_(YG, YSqr, dim, dimpow2, block=(NThreads, 1, 1), grid=(YG.shape[0], 1), shared=4*dimpow2)
-    getSumSquares_(XG, XSqr, dim, dimpow2, block=(NThreads, 1, 1), grid=(XG.shape[0], 1), shared=4*dimpow2)
+    CSM = gpuarray.empty((len(XSqr), len(YSqr)), np.float32)
+    XG = gpuarray.empty((len(XSqr), dim), np.float32)
+    YG = gpuarray.empty((len(YSqr), dim), np.float32)
 
-    #Step 2: Do multiplication part
-    tic = time.time()
-    XGT = linalg.transpose(XG)
-    CSM = linalg.dot(YG, XGT)
-    print "Elapsed time multiply: ", time.time() - tic
+    for trial in range(NTrials):
+        free, total = drv.mem_get_info()
+        print '%.1f %% of device memory is free.' % ((free/float(total))*100)
 
-    #Step 3: Add everything together
-    Mp = np.array(XG.shape[0], dtype=np.int32)
-    Np = np.array(YG.shape[0], dtype=np.int32)
-    MPow2 = roundUpPow2(XG.shape[0])
-    #CSM is N x M
-    tic = time.time()
-    finishCSM_(CSM, XSqr, YSqr, Np, Mp, MPow2, block=(int(MPow2), 1, 1), grid=(YG.shape[0], 1))
-    print "Elapsed Time Finish: ", time.time() - toc
+        X = np.array(np.random.randn(M, dim), dtype = np.float32)
+        Y = np.array(np.random.randn(N*NOthers, dim), dtype = np.float32)
+
+        tic = time.time()
+        #Use an "allocator" with GPUArray initialization?
+        drv.memcpy_htod(XG, X)
+        drv.memcpy_htod(YG, Y)
+        toc = time.time()
+        print "GPU Copy Time: ", toc - tic
+
+        tic = time.time()
+        CSM1 = getCSM(Y, X)
+        CPUTime = time.time() - tic
+
+        tic = time.time()
 
 
-    tocg = time.time()
-    GPUTime = tocg - ticg
 
-    #print("Elapsed Time CPU: %g"%CPUTime)
-    #print("Elapsed Time GPU: %g"%GPUTime)
 
-    CSM = CSM.get()
-    CSM = CSM[0:N, :]
-    CSM1 = CSM1[0:N, :]
-    plt.subplot(131)
-    plt.imshow(CSM1, interpolation = 'none', cmap = 'afmhot')
-    plt.subplot(132)
-    plt.imshow(CSM, interpolation = 'none', cmap = 'afmhot')
-    plt.subplot(133)
-    plt.imshow(CSM1 - CSM, interpolation = 'none', cmap = 'spectral')
-    plt.show()
+        #Step 1: Sum of squares across rows
+        dim = np.array(dim, dtype=np.int32)
+        dimpow2 = roundUpPow2(dim)
+        NThreads = min(dimpow2, 512)
+        getSumSquares_(YG, YSqr, dim, dimpow2, block=(NThreads, 1, 1), grid=(YG.shape[0], 1), shared=4*dimpow2)
+        getSumSquares_(XG, XSqr, dim, dimpow2, block=(NThreads, 1, 1), grid=(XG.shape[0], 1), shared=4*dimpow2)
 
+        #Step 2: Do multiplication part
+        XGT = linalg.transpose(XG)
+        linalg.dot(YG, XGT, out=CSM)
+
+        #Step 3: Add everything together
+        Mp = np.array(XG.shape[0], dtype=np.int32)
+        Np = np.array(YG.shape[0], dtype=np.int32)
+        MPow2 = roundUpPow2(XG.shape[0])
+        NThreads = min(MPow2, 512)
+        #CSM is N x M
+        finishCSM_(CSM, XSqr, YSqr, Np, Mp, MPow2, block=(NThreads, 1, 1), grid=(YG.shape[0], 1))
+
+
+
+
+        toc = time.time()
+        GPUTime = toc - tic
+
+        print "CPU Time CSM: %g"%CPUTime
+        print "GPU Time CSM: %g"%GPUTime
+
+        if doPlot:
+            CSM1 = CSM1[0:N, :]
+            CSM2 = CSM.get()
+            CSM2 = CSM2[0:N, :]
+            plt.subplot(131)
+            plt.imshow(CSM1, interpolation = 'none', cmap = 'afmhot')
+            plt.subplot(132)
+            plt.imshow(CSM2, interpolation = 'none', cmap = 'afmhot')
+            plt.subplot(133)
+            plt.imshow(CSM1 - CSM2, interpolation = 'none', cmap = 'spectral')
+            plt.show()
+    return time.time()
 
 
 if __name__ == '__main__':
     np.random.seed(100)
     initParallelAlgorithms()
-    testCSM(1000, 1000, 60)
+    t = testCSM(1000, 1000, 60, doPlot = False)
+    print "Return time: ", time.time() - t
 
 if __name__ == '__main__2':
     initParallelAlgorithms()

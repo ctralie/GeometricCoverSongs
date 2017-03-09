@@ -66,7 +66,7 @@ def getTorusKnot(N, p, q):
     X[:, 2] = -np.sin(q*t)
     return X
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     zeroReturn = True
     N = 400
     X = getTorusKnot(N, 2, 5)
@@ -92,3 +92,50 @@ if __name__ == '__main__':
     plt.savefig("Diffusion%i.png"%t)
 
     sio.savemat("X.mat", {"X":X, "M":M})
+
+
+if __name__ == '__main__':
+    zeroReturn = True
+    N = 400
+    X = getPinchedCircle(N)
+    sio.savemat("X.mat", {"X":X})
+    tic = time.time()
+    [SSMOrig, _] = getSSM(X, N)
+    toc = time.time()
+    print "Elapsed time SSM: ", toc - tic
+    Kappa = 0.1
+
+    plt.figure(figsize=(12, 5))
+    plt.subplot(121)
+    plt.scatter(X[:, 0], X[:, 1], 40, np.arange(N), cmap = 'Spectral', edgecolor = 'none')
+    plt.axis('equal')
+    ax = plt.gca()
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    plt.title("Original Pinched Circle")
+    plt.subplot(122)
+    plt.imshow(SSMOrig, interpolation = 'nearest', cmap = 'afmhot')
+    plt.title("Original SSM")
+    plt.savefig("Diffusion0.svg", bbox_inches = 'tight')
+
+    ts = [100]
+    for t in ts:
+        plt.clf()
+        M = getDiffusionMap(SSMOrig, Kappa, t)
+        (SSM, _) = getSSM(M, N)
+        plt.subplot(121)
+        X = M[:, [-2, -3]]
+        plt.scatter(X[:, 0], X[:, 1], 40, np.arange(N), cmap = 'Spectral', edgecolor = 'none')
+        plt.title("2D Diffusion Map, t = %i, $\kappa = %g$"%(t, Kappa))
+        plt.axis('equal')
+        plt.xlim([np.min(X[:, 0]) - 0.001, np.max(X[:, 0]) + 0.001])
+        plt.ylim([np.min(X[:, 1]) - 0.001, np.max(X[:, 1]) + 0.001])
+        ax = plt.gca()
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+        plt.subplot(122)
+        plt.imshow(SSM, interpolation = 'nearest', cmap = 'afmhot')
+        plt.title("Diffusion Distance")
+        plt.savefig("Diffusion%i.svg"%t, bbox_inches = 'tight')

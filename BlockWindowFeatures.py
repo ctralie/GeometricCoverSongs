@@ -1,4 +1,3 @@
-
 import numpy as np
 import sys
 import scipy.io as sio
@@ -8,6 +7,7 @@ from scipy import signal
 import time
 import pickle
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from CSMSSMTools import *
 from CurvatureTools import *
 from SpectralMethods import *
@@ -252,7 +252,20 @@ def getBlockWindowFeatures(args):
 
     return (BlockFeatures, OtherFeatures)
 
-def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix):
+def plotSongLabels(song1, song2, k = 3):
+    for i in range(k):
+        plt.subplot(1, k, i+1)
+        plt.xlabel("%s Beat Index"%song2)
+        plt.ylabel("%s Beat Index"%song1)
+
+def makeColorbar(k = 3):
+    plt.subplot(1, k, k)
+    ax = plt.gca()
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad = 0.05)
+    plt.colorbar(cax = cax)
+
+def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, song1name = 'Song 1', song2name = 'Song 2'):
     print "Getting features for %s..."%filename1
     (XAudio, Fs) = getAudio(filename1)
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize)
@@ -266,25 +279,48 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
     print "Feature Types: ", Features1.keys()
 
     Results = {'filename1':filename1, 'filename2':filename2, 'TempoBias1':TempoBias1, 'TempoBias2':TempoBias2, 'hopSize':hopSize, 'FeatureParams':FeatureParams, 'CSMTypes':CSMTypes, 'Kappa':Kappa}
-    plt.figure(figsize=(16, 48))
+    plt.figure(figsize=(18, 5))
 
     #Do each feature individually
     for FeatureName in Features1:
+        plt.clf()
         score = getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
+        plotSongLabels(song1name, song2name)
+        makeColorbar()
+        plt.subplot(131)
+        plt.title("CSM %s"%FeatureName)
         plt.savefig("%s_CSMs_%s.svg"%(fileprefix, FeatureName), dpi=200, bbox_inches='tight')
 
     #Do OR Merging
     plt.clf()
-    plt.figure(figsize=(16, 16 + 16*len(Features1.keys())))
-    score = getCSMSmithWatermanScoresORMerge([Features1, O1, Features2, O2, Kappa, CSMTypes], True)
-    plt.savefig("%s_CSM_ORMerged.svg"%fileprefix, dpi=200, bbox_inches='tight')
+    res = getCSMSmithWatermanScoresORMerge([Features1, O1, Features2, O2, Kappa, CSMTypes], True)
+    plt.subplot(131)
+    plt.imshow(1-res['DBinary'], interpolation = 'nearest', cmap = 'gray')
+    plt.title("CSM Binary OR Fused, $\kappa$=%g"%Kappa)
+    plt.subplot(132)
+    plt.imshow(res['D'], interpolation = 'nearest', cmap = 'afmhot')
+    plt.title("Smith Waterman Score = %g"%res['maxD'])
+    plotSongLabels(song1name, song2name)
+    plt.savefig("%s_CSMs_ORMerged.svg"%fileprefix, dpi=200, bbox_inches='tight')
 
     #Do cross-similarity fusion
     plt.clf()
     K = 20
     NIters = 3
     res = getCSMSmithWatermanScoresEarlyFusionFull([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], True)
+    plt.clf()
     Results['CSMFused'] = res['CSM']
-    plt.savefig("%s_CSM_Fused.svg"%fileprefix, dpi=200, bbox_inches='tight')
+    plt.subplot(131)
+    plt.imshow(res['CSM'], interpolation = 'nearest', cmap = 'afmhot')
+    plt.title('W Similarity Network Fusion')
+    plt.subplot(132)
+    plt.imshow(1-res['DBinary'], interpolation = 'nearest', cmap = 'gray')
+    plt.title("CSM Binary, $\kappa$=%g"%Kappa)
+    plt.subplot(133)
+    plt.imshow(res['D'], interpolation = 'nearest', cmap = 'afmhot')
+    plt.title("Smith Waterman Score = %g"%res['maxD'])
+    plotSongLabels(song1name, song2name)
+    makeColorbar()
+    plt.savefig("%s_CSMs_Fused.svg"%fileprefix, dpi=200, bbox_inches='tight')
 
     sio.savemat("%s.mat"%fileprefix, Results)

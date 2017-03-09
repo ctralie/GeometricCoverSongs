@@ -167,7 +167,7 @@ def doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa,
 ## Entry points for running the experiments
 #############################################################################
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     Kappa = 0.1
     hopSize = 512
     TempoBiases = [60, 120, 180]
@@ -194,37 +194,48 @@ if __name__ == '__main__':
 
     fout.close()
 
-if __name__ == '__main__2':
+def getArtistName(filename):
+    songname = filename.split("+")[0].split("/")[-1]
+    songname = [s.capitalize() for s in songname.split("_")]
+    s = songname[0]
+    for i in range(1, len(songname)):
+        s = s + " " + songname[i]
+    return s
+
+if __name__ == '__main__':
     Kappa = 0.1
     hopSize = 512
     TempoBias1 = 180
     TempoBias2 = 180
 
-    index = 8
     fin = open('covers32k/list1.list', 'r')
     files1 = [f.strip() for f in fin.readlines()]
     fin.close()
     fin = open('covers32k/list2.list', 'r')
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
-    filename1 = "covers32k/" + files1[index] + ".mp3"
-    filename2 = "covers32k/" + files2[index] + ".mp3"
-    fileprefix = "Covers80%i"%index
+    for index in range(80):
+        filename1 = "covers32k/" + files1[index] + ".mp3"
+        filename2 = "covers32k/" + files2[index] + ".mp3"
+        fileprefix = "Covers80_%i"%index
 
-    #filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
-    #filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'
-    #fileprefix = "BlurredLines"
+        song1name = getArtistName(filename1)
+        song2name = getArtistName(filename2)
 
-    #FeatureParams = {'DPixels':200, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':20, 'D2Samples':40, 'MFCCSamplesPerBlock':200, 'GeodesicDelta':10, 'NGeodesic':400, 'lifterexp':0.6, 'MFCCBeatsPerBlock':12, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
-    #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':200, 'MFCCBeatsPerBlock':20}
+        #filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
+        #filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'
+        #fileprefix = "BlurredLines"
 
-    CurvSigmas = [10, 60]
-    FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DiffusionKappa':0.1, 'tDiffusion':-1}
+        #FeatureParams = {'DPixels':200, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':20, 'D2Samples':40, 'MFCCSamplesPerBlock':200, 'GeodesicDelta':10, 'NGeodesic':400, 'lifterexp':0.6, 'MFCCBeatsPerBlock':12, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
+        #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':200, 'MFCCBeatsPerBlock':20}
 
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
-    for sigma in CurvSigmas:
-        CSMTypes['Jumps%g'%sigma] = 'Euclidean'
-        CSMTypes['Curvs%g'%sigma] = 'Euclidean'
-        CSMTypes['Tors%g'%sigma] = 'Euclidean'
+        CurvSigmas = [10, 60]
+        FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
 
-    compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix)
+        CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+        for sigma in CurvSigmas:
+            CSMTypes['Jumps%g'%sigma] = 'Euclidean'
+            CSMTypes['Curvs%g'%sigma] = 'Euclidean'
+            CSMTypes['Tors%g'%sigma] = 'Euclidean'
+
+        compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, song1name, song2name)
