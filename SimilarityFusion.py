@@ -169,7 +169,7 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
     Ws = [getW(D, K) for D in Scores]
     return doSimilarityFusionWs(Ws, K, NIters, reg, PlotNames)
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     X = sio.loadmat('Scores7.mat')
     PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
     #PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']

@@ -44,14 +44,14 @@ def getCovers80FeaturesDict(FeatureParams, hopSize, TempoBiases):
             OtherFeatures[k].append(Other)
     return (AllFeatures, OtherFeatures, files)
 
-def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, matfilename, fout):
+def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, filePrefix, fout):
     NSongs = 80
     N = NSongs*2
 
     (AllFeatures, OtherFeatures, files) = getCovers80FeaturesDict(FeatureParams, hopSize, TempoBiases)
 
     #Setup files that will hold cross-similarity images
-    for i in range(NSongs):
+    for i in range(0):#NSongs):
         fh = open("CSMResults/%i.html"%i, "w")
         fh.write("<html><body><h1>%s</h1><HR><BR>"%files[i])
         fh.close()
@@ -66,12 +66,12 @@ def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, 
         (Scores, BestTempos) = getScores(AllFeatures[FeatureName], OtherFeatures, Kappa, CSMType)
         Results[FeatureName] = Scores
         Results["%sTempos"%FeatureName] = BestTempos
-        print("\n\nScores %s"%FeatureName)
-        getCovers80EvalStatistics(Scores, N, NSongs, [1, 25, 50, 100], fout, FeatureName)
-        sio.savemat(matfilename, Results)
+        print("\n\nScores %s, %s"%(filePrefix, FeatureName))
+        getCovers80EvalStatistics(Scores, N, NSongs, [1, 25, 50, 100], fout, "%s_%s"%(filePrefix, FeatureName))
+        sio.savemat("%s.mat"%filePrefix, Results)
 
         #Output the cross-similarity matrices for this feature
-        for i in range(NSongs):
+        for i in range(0):#NSongs):
             [i1, i2] = BestTempos[i, i, :]
             F1 = AllFeatures[FeatureName][i1][i]
             O1 = OtherFeatures[i1][i]
@@ -87,7 +87,7 @@ def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, 
             fh.close()
 
     #Ouput table showing which features got songs correct or not
-    csmout = open("CSMResults/index.html", "w")
+    csmout = open("CSMResults/%s.html"%filePrefix, "w")
     csmout.write("<html><body><table>\n<tr><td>Cover Song</td>")
     print "Processing ", AllFeatures.keys()
     for FeatureName in AllFeatures:
@@ -167,32 +167,34 @@ def doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa,
 ## Entry points for running the experiments
 #############################################################################
 
-if __name__ == '__main__2':
-    Kappa = 0.1
+if __name__ == '__main__':
     hopSize = 512
     TempoBiases = [60, 120, 180]
+    for Kappa in [0.05, 0.1, 0.2]:
+        for BeatsPerBlock in [6, 8, 10, 12, 14, 16, 18, 20, 22, 24]:
+            filePrefix = "%g_%i"%(Kappa, BeatsPerBlock)
 
-    #FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':40, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10, 'NGeodesics':400, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
+            #FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':40, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10, 'NGeodesics':400, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
 
-    #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':50, 'MFCCBeatsPerBlock':20}
-    #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'NCurv':400, 'NTors':400}
-    CurvSigmas = [10, 60]
-    #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'CurvSigmas':CurvSigmas}
-    FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50, 'DiffusionKappa':0.1, 'tDiffusion':100}
+            #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':50, 'MFCCBeatsPerBlock':20}
+            #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'NCurv':400, 'NTors':400}
+            CurvSigmas = [10, 60]
+            #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'CurvSigmas':CurvSigmas}
+            FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'DPixels':50, 'MFCCSamplesPerBlock':50}
 
-    #What types of cross-similarity should be used to compare different blocks for different feature types
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
-    for sigma in CurvSigmas:
-        CSMTypes['Jumps%g'%sigma] = 'Euclidean'
-        CSMTypes['Curvs%g'%sigma] = 'Euclidean'
-        CSMTypes['Tors%g'%sigma] = 'Euclidean'
+            #What types of cross-similarity should be used to compare different blocks for different feature types
+            CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+            for sigma in CurvSigmas:
+                CSMTypes['Jumps%g'%sigma] = 'Euclidean'
+                CSMTypes['Curvs%g'%sigma] = 'Euclidean'
+                CSMTypes['Tors%g'%sigma] = 'Euclidean'
 
-    fout = open("results.html", "a")
+            fout = open("results.html", "a")
 
-    #doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat", fout)
-    doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat", fout)
+            #doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, "Results.mat", fout)
+            doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, filePrefix, fout)
 
-    fout.close()
+            fout.close()
 
 def getArtistName(filename):
     songname = filename.split("+")[0].split("/")[-1]
@@ -202,7 +204,7 @@ def getArtistName(filename):
         s = s + " " + songname[i]
     return s
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     Kappa = 0.1
     hopSize = 512
     TempoBias1 = 180
