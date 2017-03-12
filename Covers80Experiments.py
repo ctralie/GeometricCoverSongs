@@ -197,7 +197,15 @@ if __name__ == '__main__':
             fout.close()
 
 def getArtistName(filename):
-    songname = filename.split("+")[0].split("/")[-1]
+    artistname = filename.split("/")[-1].split("+")[0]
+    artistname = [s.capitalize() for s in artistname.split("_")]
+    s = artistname[0]
+    for i in range(1, len(artistname)):
+        s = s + " " + artistname[i]
+    return s
+
+def getSongName(filename):
+    songname = filename.split("/")[0]
     songname = [s.capitalize() for s in songname.split("_")]
     s = songname[0]
     for i in range(1, len(songname)):
@@ -221,8 +229,9 @@ if __name__ == '__main__2':
         filename2 = "covers32k/" + files2[index] + ".mp3"
         fileprefix = "Covers80_%i"%index
 
-        song1name = getArtistName(filename1)
-        song2name = getArtistName(filename2)
+        artist1 = getArtistName(files1[index])
+        artist2 = getArtistName(files2[index])
+        songName = getSongName(files1[index])
 
         #filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
         #filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'
@@ -240,4 +249,4 @@ if __name__ == '__main__2':
             CSMTypes['Curvs%g'%sigma] = 'Euclidean'
             CSMTypes['Tors%g'%sigma] = 'Euclidean'
 
-        compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, song1name, song2name)
+        compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, artist1, artist2)
