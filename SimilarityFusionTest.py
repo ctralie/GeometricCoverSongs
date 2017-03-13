@@ -11,6 +11,7 @@ from BlockWindowFeatures import *
 from MusicFeatures import *
 from EvalStatistics import *
 from SimilarityFusion import *
+from Covers80Experiments import *
 
 #Synthetic example
 if __name__ == "__main__2":
@@ -47,7 +48,7 @@ if __name__ == '__main__':
     TempoBias1 = 180
     TempoBias2 = 180
 
-    index = 8
+    index = 6
     fin = open('covers32k/list1.list', 'r')
     files1 = [f.strip() for f in fin.readlines()]
     fin.close()
@@ -57,6 +58,8 @@ if __name__ == '__main__':
     filename1 = "covers32k/" + files1[index] + ".mp3"
     filename2 = "covers32k/" + files2[index] + ".mp3"
     fileprefix = "Covers80%i"%index
+    artist1 = getArtistName(files1[index])
+    artist2 = getArtistName(files2[index])
 
     #filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
     #filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'
@@ -89,6 +92,7 @@ if __name__ == '__main__':
         O2 = X['O2']
 
     Features = ['SSMs', 'Chromas']
+    FeatureNames = {'SSMs':'MFCC SSMs', 'Chromas':'HPCP Blocks'}
     Features1b = {}
     Features2b = {}
     for F in Features:
@@ -99,5 +103,60 @@ if __name__ == '__main__':
     Kappa = 0.1
     K = 20
     NIters = 3
-    getCSMSmithWatermanScoresEarlyFusion([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], doPlot = True)
-    plt.show()
+    #getCSMSmithWatermanScoresEarlyFusion([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], doPlot = True)
+    #plt.show()
+    
+    CSMs = [] #Individual CSMs
+    Ws = [] #W built from fused CSMs/SSMs
+    Features = Features1.keys()
+    #Compute all CSMs and SSMs
+    plt.figure(figsize=(15, 10))
+    for i in range(len(Features)):
+        F = Features[i]
+        SSMA = getCSMType(Features1[F], O1, Features1[F], O1, CSMTypes[F])
+        SSMB = getCSMType(Features2[F], O2, Features2[F], O2, CSMTypes[F])
+        CSMAB = getCSMType(Features1[F], O1, Features2[F], O2, CSMTypes[F])
+        CSMs.append(CSMAB)
+        M = SSMA.shape[0]
+        N = SSMB.shape[0]
+        #Build W from CSM and SSMs
+        Ws.append(getWCSMSSM(SSMA, SSMB, CSMAB, K))
+        plt.subplot(2, len(Features)+1, i+1)
+        W = np.array(Ws[-1])
+        W = W - np.diag(np.diag(W))
+        plt.imshow(W, cmap = 'afmhot', interpolation = 'nearest')
+        plt.hold(True)
+        plt.plot([M, M+N], [0, 0], 'c', linewidth=5)
+        plt.plot([M, M], [0, M], 'c', linewidth=2)
+        plt.plot([M, M+N], [M, M], 'c', linewidth=2)
+        plt.plot([M+N, M+N], [0, M], 'c', linewidth=5)
+        plt.xlim([0, W.shape[1]])
+        plt.ylim([W.shape[0], 0])
+        plt.title("$W_{AB}$ for %s Features"%FeatureNames[F])
+        plt.xlabel("Concatenated Beat Index")
+        plt.ylabel("Concatenated Beat Index")
+        plt.subplot(2, len(Features)+1, len(Features)+2+i)
+        C = Ws[-1]
+        C = C[0:M, M::]
+        plt.imshow(C, cmap = 'afmhot', interpolation = 'nearest')
+
+        plt.title("$W_{AB}$ CSM Part %s"%FeatureNames[F])
+        plt.xlabel("%s Beat Index"%artist2)
+        plt.ylabel("%s Beat Index"%artist1)
+    D = doSimilarityFusionWs(Ws, K, NIters, 1)
+    D = D - np.diag(np.diag(D))
+    plt.subplot(2, len(Features)+1, len(Features)+1)
+    plt.imshow(D, cmap = 'afmhot', interpolation = 'nearest')
+    plt.title("SNF Result $P$")
+    plt.xlabel("Concatenated Beat Index")
+    plt.ylabel("Concatenated Beat Index")
+    
+    plt.subplot(2, len(Features)+1, 2*(len(Features)+1))
+    C = D[0:SSMA.shape[0], SSMA.shape[1]::]
+    plt.imshow(C, cmap = 'afmhot', interpolation = 'nearest')
+    plt.title("$P$ CSM Part")
+    plt.xlabel("%s Beat Index"%artist2)
+    plt.ylabel("%s Beat Index"%artist1)
+    
+    plt.savefig("EarlySNFExample_%i.svg"%index, bbox_inches = 'tight')
+    
