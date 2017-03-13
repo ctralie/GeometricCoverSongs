@@ -48,8 +48,12 @@ def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, 
     NSongs = 80
     N = NSongs*2
 
-    (AllFeatures, OtherFeatures, files) = getCovers80FeaturesDict(FeatureParams, hopSize, TempoBiases)
+    if os.path.exists("%s.mat"%filePrefix):
+        print "SKIPPING %s..."%filePrefix
+        return
 
+    (AllFeatures, OtherFeatures, files) = getCovers80FeaturesDict(FeatureParams, hopSize, TempoBiases)
+    
     #Setup files that will hold cross-similarity images
     for i in range(0):#NSongs):
         fh = open("CSMResults/%i.html"%i, "w")
