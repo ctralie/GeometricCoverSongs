@@ -1,7 +1,9 @@
-#Programmer: Chris Tralie
-#Purpose: To implement similarity network fusion approach described in
-#[1] Wang, Bo, et al. "Unsupervised metric fusion by cross diffusion." Computer Vision and Pattern Recognition (CVPR), 2012 IEEE Conference on. IEEE, 2012.
-#[2] Wang, Bo, et al. "Similarity network fusion for aggregating data types on a genomic scale." Nature methods 11.3 (2014): 333-337.
+"""
+Programmer: Chris Tralie, 12/2016 (ctralie@alumni.princeton.edu)
+Purpose: To implement similarity network fusion approach described in
+[1] Wang, Bo, et al. "Unsupervised metric fusion by cross diffusion." Computer Vision and Pattern Recognition (CVPR), 2012 IEEE Conference on. IEEE, 2012.
+[2] Wang, Bo, et al. "Similarity network fusion for aggregating data types on a genomic scale." Nature methods 11.3 (2014): 333-337.
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import sparse
@@ -169,16 +171,17 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
     Ws = [getW(D, K) for D in Scores]
     return doSimilarityFusionWs(Ws, K, NIters, reg, PlotNames)
 
-if __name__ == '__main__2':
+if __name__ == '__main__':
     X = sio.loadmat('Scores7.mat')
     PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
     #PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
     Scores = [X[s] for s in PlotNames]
     for i in range(len(Scores)):
-        Scores[i] = 1.0/Scores[i]
+        #Smith waterman returns larger scores for more similar songs,
+        #but we want the graph kernel to be closer to 0 for similar objects
+        Scores[i] = 1.0/Scores[i] 
 
-    W = 20
-
+    W = 20 #Number of nearest neighbors to take in the network
     FusedScores = doSimilarityFusion(Scores, W, 20, 1, PlotNames)
     fout = open("resultsFusion.html", "a")
     getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 25, 50, 100], fout, name = "Jumps10/Jumps60/Curvs60, 20NN, 1Reg")

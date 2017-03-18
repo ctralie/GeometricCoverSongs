@@ -178,6 +178,7 @@ def getCSMSmithWatermanScores(args, doPlot = False):
         plt.subplot(133)
         plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
         plt.title("Smith Waterman Score = %g"%maxD)
+        return {'score':maxD, 'DBinary':DBinary, 'D':D, 'maxD':maxD, 'CSM':CSM}
     return _SequenceAlignment.swalignimpconstrained(DBinary)
 
 def getScores(Features, OtherFeatures, Kappa, CSMType):
@@ -243,7 +244,7 @@ def getCSMSmithWatermanScoresORMerge(args, doPlot = False):
         plt.subplot(2, N+1, N+1)
         plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
         plt.title("Smith Waterman Score = %g"%maxD)
-        return {'score':_SequenceAlignment.swalignimpconstrained(DBinary), 'DBinary':DBinary, 'D':D, 'maxD':maxD}
+        return {'score':maxD, 'DBinary':DBinary, 'D':D, 'maxD':maxD}
     return _SequenceAlignment.swalignimpconstrained(DBinary)
 
 
@@ -323,7 +324,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False):
         (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
         plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
         plt.title("Fused Score = %g"%maxD)
-        return {'score':_SequenceAlignment.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary, 'D':D, 'maxD':maxD}
+        return {'score':maxD, 'CSM':CSM, 'DBinary':DBinary, 'D':D, 'maxD':maxD}
     return {'score':_SequenceAlignment.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary}
 
 def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
