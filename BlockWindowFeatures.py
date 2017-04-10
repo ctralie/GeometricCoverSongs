@@ -223,6 +223,7 @@ def getBlockWindowFeatures(args):
     ChromaBeatsPerBlock = 20
     ChromasPerBlock = 40
     NChromaBins = 12
+    FTM2D = False #2D Fourier Magnitude coefficients
     if 'ChromaBeatsPerBlock' in FeatureParams:
         ChromaBeatsPerBlock = FeatureParams['ChromaBeatsPerBlock']
         NChromaBlocks = NBeats - ChromaBeatsPerBlock
@@ -232,9 +233,14 @@ def getBlockWindowFeatures(args):
         usingChroma = True
     if 'NChromaBins' in FeatureParams:
         NChromaBins = FeatureParams['NChromaBins']
+    if 'FTM2D' in FeatureParams:
+        FTM2D = FeatureParams['FTM2D']
+
     XChroma = np.array([])
     if usingChroma:
         BlockFeatures['Chromas'] = np.zeros((NChromaBlocks, ChromasPerBlock*NChromaBins))
+        if FTM2D:
+            BlockFeatures['ChromasFTM2D'] = np.zeros((NChromaBlocks, ChromasPerBlock*NChromaBins))
         #XChroma = getCensFeatures(XAudio, Fs, hopSize)
         XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
         #librosa.display.specshow(XChroma, y_axis='chroma', x_axis='time')
@@ -249,6 +255,11 @@ def getBlockWindowFeatures(args):
         xnorm[xnorm == 0] = 1
         x = x/xnorm[:, None]
         BlockFeatures['Chromas'][i, :] = x.flatten()
+        if FTM2D:
+            xf = np.fft.fft2(x)
+            xf = np.abs(xf)
+            xf[0, 0] = 0 #Ignore DC
+            BlockFeatures['ChromasFTM2D'] = xf.flatten()
 
     return (BlockFeatures, OtherFeatures)
 
@@ -311,7 +322,8 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
     plt.clf()
     Results['CSMFused'] = res['CSM']
     plt.subplot(131)
-    plt.imshow(res['CSM'], interpolation = 'nearest', cmap = 'afmhot')
+    C = res['CSM']
+    plt.imshow(np.max(C) - C, cmap = 'afmhot', interpolation = 'nearest')
     plt.title('W Similarity Network Fusion')
     plt.subplot(132)
     plt.imshow(1-res['DBinary'], interpolation = 'nearest', cmap = 'gray')

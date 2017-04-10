@@ -58,11 +58,15 @@ def bitonicSort(XG):
     bitonicSort_(XG, N, NPow2, block=(NThreads, 1, 1), grid=(XG.shape[0], 1), shared=4*NPow2)
 
 def testBitonicSort(N, doPlot = False):
-    X = np.array(np.random.rand(N, N), dtype=np.float32)
+    X = np.array(np.random.rand(N*10, N), dtype=np.float32)
+    tic = time.time()
     XG = gpuarray.to_gpu(X)
+    toc = time.time()
+    print "Elapsed memcopy time: ", toc-tic
 
     tic = time.time()
     bitonicSort(XG)
+    skcuda.misc.add(XG, XG)
     toc = time.time()
     GPUTime = toc-tic
 
@@ -70,6 +74,11 @@ def testBitonicSort(N, doPlot = False):
     X2 = np.sort(X, 1)
     toc = time.time()
     CPUTime = toc-tic
+
+    tic = time.time()
+    J = np.argpartition(X, N/10, 1)
+    toc = time.time()
+    print("Elapsed Time Partition: %g"%(toc-tic))
 
     print("N = %i"%N)
     print("Elapsed Time CPU: %g"%CPUTime)
@@ -178,12 +187,12 @@ def testCSM(M, N, NOthers, dim = 25*25, NTrials = 4, doPlot = True):
     return time.time()
 
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     np.random.seed(100)
     initParallelAlgorithms()
     t = testCSM(1000, 1000, 60, doPlot = False)
     print "Return time: ", time.time() - t
 
-if __name__ == '__main__2':
+if __name__ == '__main__':
     initParallelAlgorithms()
-    testBitonicSort(3000, True)
+    testBitonicSort(800, False)

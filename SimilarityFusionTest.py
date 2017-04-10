@@ -124,7 +124,7 @@ if __name__ == '__main__':
         plt.subplot(2, len(Features)+1, i+1)
         W = np.array(Ws[-1])
         W = W - np.diag(np.diag(W))
-        plt.imshow(W, cmap = 'afmhot', interpolation = 'nearest')
+        plt.imshow(np.max(W) - W, cmap = 'gray', interpolation = 'nearest')
         plt.hold(True)
         plt.plot([M, M+N], [0, 0], 'c', linewidth=5)
         plt.plot([M, M], [0, M], 'c', linewidth=2)
@@ -138,7 +138,7 @@ if __name__ == '__main__':
         plt.subplot(2, len(Features)+1, len(Features)+2+i)
         C = Ws[-1]
         C = C[0:M, M::]
-        plt.imshow(C, cmap = 'afmhot', interpolation = 'nearest')
+        plt.imshow(np.max(C)-C, cmap = 'gray', interpolation = 'nearest')
 
         plt.title("$W_{AB}$ CSM Part %s"%FeatureNames[F])
         plt.xlabel("%s Beat Index"%artist2)
@@ -146,14 +146,21 @@ if __name__ == '__main__':
     D = doSimilarityFusionWs(Ws, K, NIters, 1)
     D = D - np.diag(np.diag(D))
     plt.subplot(2, len(Features)+1, len(Features)+1)
-    plt.imshow(D, cmap = 'afmhot', interpolation = 'nearest')
+    plt.imshow(np.max(D) - D, cmap = 'gray', interpolation = 'nearest')
+    plt.hold(True)
+    plt.plot([M, M+N], [0, 0], 'c', linewidth=5)
+    plt.plot([M, M], [0, M], 'c', linewidth=2)
+    plt.plot([M, M+N], [M, M], 'c', linewidth=2)
+    plt.plot([M+N, M+N], [0, M], 'c', linewidth=5)
+    plt.xlim([0, W.shape[1]])
+    plt.ylim([W.shape[0], 0])
     plt.title("SNF Result $P$")
     plt.xlabel("Concatenated Beat Index")
     plt.ylabel("Concatenated Beat Index")
     
     plt.subplot(2, len(Features)+1, 2*(len(Features)+1))
     C = D[0:SSMA.shape[0], SSMA.shape[1]::]
-    plt.imshow(C, cmap = 'afmhot', interpolation = 'nearest')
+    plt.imshow(np.max(C) - C, cmap = 'gray', interpolation = 'nearest')
     plt.title("$P$ CSM Part")
     plt.xlabel("%s Beat Index"%artist2)
     plt.ylabel("%s Beat Index"%artist1)
