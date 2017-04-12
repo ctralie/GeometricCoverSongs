@@ -176,7 +176,7 @@ if __name__ == '__main__':
     TempoBiases = [60, 120, 180]
     Kappa = 0.1
     BeatsPerBlock = 20
-    filePrefix = "Covers80%g_%i"%(Kappa, BeatsPerBlock)
+    filePrefix = "Covers80_%g_%i"%(Kappa, BeatsPerBlock)
 
     #FeatureParams = {'DPixels':50, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':40, 'D2Samples':40, 'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':50, 'GeodesicDelta':10, 'NGeodesics':400, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
 
@@ -229,7 +229,7 @@ if __name__ == '__main__2':
     fin = open('covers32k/list2.list', 'r')
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
-    for index in [4, 6, 67]:
+    for index in [6]:#[4, 6, 67]:
         filename1 = "covers32k/" + files1[index] + ".mp3"
         filename2 = "covers32k/" + files2[index] + ".mp3"
         fileprefix = "Covers80_%i"%index
@@ -246,9 +246,10 @@ if __name__ == '__main__2':
         #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':200, 'MFCCBeatsPerBlock':20}
 
         CurvSigmas = [10, 60]
-        FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
+        #FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
+        FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':160, 'ChromasFTM2D':True}
 
-        CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
+        CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI', 'ChromasFTM2D':'Euclidean'}
         for sigma in CurvSigmas:
             CSMTypes['Jumps%g'%sigma] = 'Euclidean'
             CSMTypes['Curvs%g'%sigma] = 'Euclidean'

@@ -23,6 +23,7 @@ __global__ void getSumSquares(float* X, float* XSqr, int dim, int dimpow2) {
             x[i] = 0.0;
         }
     }
+    __syncthreads();
     //Step 2: Perform sums
     while (sumjump > 0) {
         if (threadIdx.x < sumjump) {

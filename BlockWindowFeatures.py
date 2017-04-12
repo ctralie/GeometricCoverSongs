@@ -233,8 +233,9 @@ def getBlockWindowFeatures(args):
         usingChroma = True
     if 'NChromaBins' in FeatureParams:
         NChromaBins = FeatureParams['NChromaBins']
-    if 'FTM2D' in FeatureParams:
-        FTM2D = FeatureParams['FTM2D']
+    if 'ChromasFTM2D' in FeatureParams:
+        FTM2D = FeatureParams['ChromasFTM2D']
+    print "FTM2D = ", FTM2D
 
     XChroma = np.array([])
     if usingChroma:
@@ -256,10 +257,16 @@ def getBlockWindowFeatures(args):
         x = x/xnorm[:, None]
         BlockFeatures['Chromas'][i, :] = x.flatten()
         if FTM2D:
-            xf = np.fft.fft2(x)
+            xf = np.fft.fft(x, axis = 1)
             xf = np.abs(xf)
-            xf[0, 0] = 0 #Ignore DC
-            BlockFeatures['ChromasFTM2D'] = xf.flatten()
+            xf[:, 0] = 0 #Ignore DC
+            BlockFeatures['ChromasFTM2D'][i, :] = xf.flatten()
+            continue
+            plt.subplot(211)
+            plt.imshow(x.T, cmap = 'afmhot', aspect = 'auto', interpolation = 'none')
+            plt.subplot(212)
+            plt.imshow(xf.T, cmap = 'afmhot', aspect = 'auto', interpolation = 'none')
+            plt.savefig("2DFTM%i.png"%i, bbox_inches = 'tight')
 
     return (BlockFeatures, OtherFeatures)
 

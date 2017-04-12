@@ -50,6 +50,9 @@ def initParallelAlgorithms():
     XSqr = skcuda.misc.sum(XSqr, 1)
     XPlusCol = skcuda.misc.add_matvec(XG, XSqr, 0)
 
+def roundUpPow2(x):
+    return np.int32(int(2**np.ceil(np.log2(float(x)))))
+
 def bitonicSort(XG):
     N = np.int32(XG.shape[1])
     NPow2 = np.int32(2**np.ceil(np.log2(N)))
@@ -57,8 +60,45 @@ def bitonicSort(XG):
     NThreads = min(N2, 512)
     bitonicSort_(XG, N, NPow2, block=(NThreads, 1, 1), grid=(XG.shape[0], 1), shared=4*NPow2)
 
+def getCSMGPU(XG, YG):
+    tbegin = time.time()
+    GPUNeg2 = gpuarray.to_gpu(np.array([-2.0], dtype=np.float32))
+    YGT = linalg.transpose(YG)
+    XSqr = skcuda.misc.multiply(XG, XG)
+    XSqr = skcuda.misc.sum(XSqr, 1)
+    YSqr = skcuda.misc.multiply(YG, YG)
+    YSqr = skcuda.misc.sum(YSqr, 1)
+    C = linalg.dot(XG, YGT)
+    C = skcuda.misc.multiply(GPUNeg2, C)
+    skcuda.misc.add_matvec(C, XSqr, 0, C)
+    skcuda.misc.add_matvec(C, YSqr, 1, C)
+    return C
+
+def getCSMGPU2(XG, YG):
+    #Step 1: Sum of squares across rows
+    dim = np.int32(XG.shape[1])
+    dimpow2 = roundUpPow2(dim)
+    NThreads = np.int32(min(dimpow2, 512))
+    XSqr = gpuarray.empty(XG.shape[0], np.float32)
+    YSqr = gpuarray.empty(YG.shape[0], np.float32)
+    getSumSquares_(XG, XSqr, dim, dimpow2, block=(NThreads, 1, 1), grid=(XG.shape[0], 1), shared=4*dimpow2)
+    getSumSquares_(YG, YSqr, dim, dimpow2, block=(NThreads, 1, 1), grid=(YG.shape[0], 1), shared=4*dimpow2)
+
+    #Step 2: Do multiplication part
+    YGT = linalg.transpose(YG)
+    CSM = linalg.dot(XG, YGT)
+
+    #Step 3: Add everything together
+    Mp = np.array(XG.shape[0], dtype=np.int32)
+    Np = np.array(YG.shape[0], dtype=np.int32)
+    MPow2 = roundUpPow2(XG.shape[0])
+    NThreads = min(MPow2, 512)
+    #CSM is N x M
+    finishCSM_(CSM, XSqr, YSqr, Np, Mp, MPow2, block=(NThreads, 1, 1), grid=(YG.shape[0], 1))
+    return (CSM, XSqr, YSqr)
+
 def testBitonicSort(N, doPlot = False):
-    X = np.array(np.random.rand(N*10, N), dtype=np.float32)
+    X = np.array(np.random.rand(N*400, N), dtype=np.float32)
     tic = time.time()
     XG = gpuarray.to_gpu(X)
     toc = time.time()
@@ -103,88 +143,38 @@ def testBitonicSortTimeRatios(sizes, NTrials):
             (CPUTimes[i, t], GPUTimes[i, t]) = testBitonicSort(N)
     sio.savemat("Timings.mat", {"CPUTimes":CPUTimes, "GPUTimes":GPUTimes})
 
-def roundUpPow2(x):
-    return np.array(int(2**np.ceil(np.log2(float(x)))), dtype=np.int32)
+def testCSMTimes():
+    N = 800
+    K = 1
+    X = np.array(np.random.randn(N, 25*25), dtype = np.float32)
+    Y = np.array(np.random.randn(N*K, 25*25), dtype=np.float32)
+    XG = gpuarray.to_gpu(X)
+    YG = gpuarray.to_gpu(Y)
 
-def getCSMGPU(XG, YG, tic):
-    print "Function call: ", time.time() - tic
     tic = time.time()
+    CSM = getCSM(X, Y)
+    CPUTime = time.time() - tic
 
-    print time.time() - tic
-    return (time.time(), CSM)
+    tic = time.time()
+    (CSMG, XSqr, YSqr) = getCSMGPU2(XG, YG)
+    #CSMG = getCSMGPU(XG, YG)
+    GPUTime = time.time() - tic
 
-def testCSM(M, N, NOthers, dim = 25*25, NTrials = 4, doPlot = True):
-    #Step 0: Setup arrays for sum of squares
-    XSqr = gpuarray.empty(M, np.float32)
-    YSqr = gpuarray.empty(N*NOthers, np.float32)
+    #plt.plot(XSqr.get(), np.sum(X**2, 1), '.')
+    #plt.show()
 
-    CSM = gpuarray.empty((len(XSqr), len(YSqr)), np.float32)
-    XG = gpuarray.empty((len(XSqr), dim), np.float32)
-    YG = gpuarray.empty((len(YSqr), dim), np.float32)
+    print "CPUTime: ", CPUTime
+    print "GPUTime: ", GPUTime
 
-    for trial in range(NTrials):
-        free, total = drv.mem_get_info()
-        print '%.1f %% of device memory is free.' % ((free/float(total))*100)
+    CSMG = CSMG.get()
 
-        X = np.array(np.random.randn(M, dim), dtype = np.float32)
-        Y = np.array(np.random.randn(N*NOthers, dim), dtype = np.float32)
-
-        tic = time.time()
-        #Use an "allocator" with GPUArray initialization?
-        drv.memcpy_htod(XG, X)
-        drv.memcpy_htod(YG, Y)
-        toc = time.time()
-        print "GPU Copy Time: ", toc - tic
-
-        tic = time.time()
-        CSM1 = getCSM(Y, X)
-        CPUTime = time.time() - tic
-
-        tic = time.time()
-
-
-
-
-        #Step 1: Sum of squares across rows
-        dim = np.array(dim, dtype=np.int32)
-        dimpow2 = roundUpPow2(dim)
-        NThreads = min(dimpow2, 512)
-        getSumSquares_(YG, YSqr, dim, dimpow2, block=(NThreads, 1, 1), grid=(YG.shape[0], 1), shared=4*dimpow2)
-        getSumSquares_(XG, XSqr, dim, dimpow2, block=(NThreads, 1, 1), grid=(XG.shape[0], 1), shared=4*dimpow2)
-
-        #Step 2: Do multiplication part
-        XGT = linalg.transpose(XG)
-        linalg.dot(YG, XGT, out=CSM)
-
-        #Step 3: Add everything together
-        Mp = np.array(XG.shape[0], dtype=np.int32)
-        Np = np.array(YG.shape[0], dtype=np.int32)
-        MPow2 = roundUpPow2(XG.shape[0])
-        NThreads = min(MPow2, 512)
-        #CSM is N x M
-        finishCSM_(CSM, XSqr, YSqr, Np, Mp, MPow2, block=(NThreads, 1, 1), grid=(YG.shape[0], 1))
-
-
-
-
-        toc = time.time()
-        GPUTime = toc - tic
-
-        print "CPU Time CSM: %g"%CPUTime
-        print "GPU Time CSM: %g"%GPUTime
-
-        if doPlot:
-            CSM1 = CSM1[0:N, :]
-            CSM2 = CSM.get()
-            CSM2 = CSM2[0:N, :]
-            plt.subplot(131)
-            plt.imshow(CSM1, interpolation = 'none', cmap = 'afmhot')
-            plt.subplot(132)
-            plt.imshow(CSM2, interpolation = 'none', cmap = 'afmhot')
-            plt.subplot(133)
-            plt.imshow(CSM1 - CSM2, interpolation = 'none', cmap = 'spectral')
-            plt.show()
-    return time.time()
+    plt.subplot(131)
+    plt.imshow(CSM, interpolation = 'none', cmap = 'afmhot')
+    plt.subplot(132)
+    plt.imshow(CSMG, interpolation = 'none', cmap = 'afmhot')
+    plt.subplot(133)
+    plt.imshow(CSM - CSMG, interpolation = 'none', cmap = 'spectral')
+    plt.show()
 
 
 if __name__ == '__main__2':
@@ -195,4 +185,5 @@ if __name__ == '__main__2':
 
 if __name__ == '__main__':
     initParallelAlgorithms()
-    testBitonicSort(800, False)
+    #testBitonicSort(800, False)
+    testCSMTimes()
