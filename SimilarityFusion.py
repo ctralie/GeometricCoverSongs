@@ -171,7 +171,7 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
     Ws = [getW(D, K) for D in Scores]
     return doSimilarityFusionWs(Ws, K, NIters, reg, PlotNames)
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     X = sio.loadmat('Scores7.mat')
     PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
     #PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
@@ -179,10 +179,36 @@ if __name__ == '__main__':
     for i in range(len(Scores)):
         #Smith waterman returns larger scores for more similar songs,
         #but we want the graph kernel to be closer to 0 for similar objects
-        Scores[i] = 1.0/Scores[i] 
+        Scores[i] = 1.0/Scores[i]
 
     W = 20 #Number of nearest neighbors to take in the network
     FusedScores = doSimilarityFusion(Scores, W, 20, 1, PlotNames)
     fout = open("resultsFusion.html", "a")
     getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 25, 50, 100], fout, name = "Jumps10/Jumps60/Curvs60, 20NN, 1Reg")
+    fout.close()
+
+if __name__ == '__main__':
+    X = sio.loadmat('SHSDataset/SHSScores.mat')
+    SHSIDs = sio.loadmat("SHSDataset/SHSIDs.mat")
+    Ks = SHSIDs['Ks'].flatten()
+    PlotNames = ['Chromas', 'MFCCs', 'SSMs']
+    #PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
+    Scores = [X[s] for s in PlotNames]
+    N = Scores[0].shape[0]
+    fout = open("SHSDataset/results%i.html"%N, "a")
+    fout.write("""
+    <table border = "1" cellpadding = "10">
+<tr><td><h3>Name</h3></td><td><h3>Mean Rank</h3></td><td><h3>Mean Reciprocal Rank</h3></td><td><h3>Median Rank</h3></td><td><h3>Top-01</h3></td><td><h3>Top-25</h3></td><td><h3>Top-50</h3></td><td><h3>Top-100</h3></td></tr>      """)
+    for i in range(len(Scores)):
+        #Smith waterman returns larger scores for more similar songs,
+        #but we want the graph kernel to be closer to 0 for similar objects
+        getEvalStatistics(Scores[i], Ks, [1, 25, 50, 100], fout, PlotNames[i])
+        Scores[i] = 1.0/(0.1 + Scores[i])
+    if 'SNF' in Xs:
+        getEvalStatistics(Xs['SNF'], Ks, [1, 25, 50, 100], fout, 'SNF')
+    W = 20 #Number of nearest neighbors to take in the network
+    FusedScores = doSimilarityFusion(Scores, W, 20, 1, PlotNames)
+    sio.savemat("SHSResults.mat", {"Chromas":X['Chromas'], "MFCCs":X['MFCCs'], "SSMs":X['SSMs'], "SNF":FusedScores})
+    getEvalStatistics(FusedScores, Ks, [1, 25, 50, 100], fout, "SNF")
+    fout.write("</table>")
     fout.close()
