@@ -11,6 +11,8 @@ def getAudio(filename):
     return (XAudio, Fs)
 
 def getBeats(XAudio, Fs, TempoBias, hopSize):
+    if TempoBias == -1:
+        return getDegaraOnsets(XAudio, Fs, hopSize)
     try:
         (tempo, beats) = librosa.beat.beat_track(XAudio, Fs, start_bpm = TempoBias, hop_length = hopSize)
     except:

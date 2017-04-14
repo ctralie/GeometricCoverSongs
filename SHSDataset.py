@@ -2,6 +2,7 @@ import numpy as np
 import scipy.io as sio
 import time
 from CSMSSMTools import *
+from BlockWindowFeatures import *
 
 def getSHSIDDict():
     """
@@ -34,6 +35,22 @@ def getSHSCliques():
             cliques[currClique].append(m[l])
     fin.close()
     return cliques
+
+def getSHSInfo():
+    database = {}
+    fin = open("SHSDataset/MFCC/info.cly")
+    fin.readline()
+    while True:
+        ID = fin.readline()
+        if not ID:
+            break
+        ID = int(ID)
+        artist = fin.readline()
+        songname = fin.readline()
+        year = int(fin.readline())
+        database[ID] = {'artist':artist, 'songname':songname, 'year':year}
+    fin.close()
+    return database
 
 def loadSHSChromas(IDs):
     """
@@ -163,6 +180,7 @@ def getSHSBlockFeatures(c, m, BeatsPerBlock):
         x = x/xnorm[:, None]
         cRet[i, :] = x.flatten()
     BlockFeatures = {'Chromas':cRet, 'SSMs':dRet, 'MFCCs':mRet}
+    #BlockFeatures = {'Chromas':cRet, 'SSMs':dRet}
     OtherFeatures = {'ChromaMean':np.mean(c, 0)}
     return (BlockFeatures, OtherFeatures)
 
@@ -199,7 +217,7 @@ def doSHSExperiment(IDs, Ks, CSMTypes, BeatsPerBlock, Kappa):
 
     #Now do similarity fusion
     Scores = np.zeros((N, N))
-    NIters = 5
+    NIters = 10
     K = 20
     for i in range(N):
         print "Doing SNF %i of %i..."%(i, N)
@@ -210,15 +228,47 @@ def doSHSExperiment(IDs, Ks, CSMTypes, BeatsPerBlock, Kappa):
         Results['SNF'] = Scores + Scores.T
         sio.savemat("SHSDataset/SHSScores.mat", Results)
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
     BeatsPerBlock = 25
     Kappa = 0.1
 
-    N = 50
+    N = 200
     np.random.seed(100)
     (IDs, Ks) = getSHSSubset(N, 4)
     sio.savemat("SHSDataset/SHSIDs.mat", {"IDs":IDs, "Ks":Ks})
     tic = time.time()
     doSHSExperiment(IDs, Ks, CSMTypes, BeatsPerBlock, Kappa)
     print "Elapsed Time All Comparisons: ", time.time() - tic
+
+if __name__ == '__main__':
+    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
+    BeatsPerBlock = 25
+    Kappa = 0.1
+    #Similarity fusion parameters
+    NIters = 10
+    K = 20
+
+    database = getSHSInfo()
+    song = "Hips Don't Lie"
+    cliques = getSHSCliques()
+
+    fout = open("SHSDataset/songs.txt", "w")
+    for s in cliques.keys():
+        fout.write("%s\n"%s)
+    fout.close()
+
+
+    c = cliques[song]
+    idx1 = c[0]
+    idx2 = c[1]
+    print database[idx1]
+    print database[idx2]
+
+    mfccs = loadSHSMFCCs(c)
+    chromas = loadSHSChromas(c)
+
+    (Features1, O1) = getSHSBlockFeatures(chromas[idx1], mfccs[idx1], BeatsPerBlock)
+    (Features2, O2) = getSHSBlockFeatures(chromas[idx2], mfccs[idx2], BeatsPerBlock)
+
+    compareTwoFeatureSets({}, Features1, O1, Features2, O2, CSMTypes, Kappa, "cocaine", NIters = NIters, K = K, song1name = database[idx1]['artist'], song2name = database[idx2]['artist'])

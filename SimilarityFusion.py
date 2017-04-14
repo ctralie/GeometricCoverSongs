@@ -191,7 +191,7 @@ if __name__ == '__main__':
     X = sio.loadmat('SHSDataset/SHSScores.mat')
     SHSIDs = sio.loadmat("SHSDataset/SHSIDs.mat")
     Ks = SHSIDs['Ks'].flatten()
-    PlotNames = ['Chromas', 'MFCCs', 'SSMs']
+    PlotNames = ['Chromas', 'SSMs', 'MFCCs']
     #PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
     Scores = [X[s] for s in PlotNames]
     N = Scores[0].shape[0]
@@ -204,11 +204,16 @@ if __name__ == '__main__':
         #but we want the graph kernel to be closer to 0 for similar objects
         getEvalStatistics(Scores[i], Ks, [1, 25, 50, 100], fout, PlotNames[i])
         Scores[i] = 1.0/(0.1 + Scores[i])
-    if 'SNF' in Xs:
-        getEvalStatistics(Xs['SNF'], Ks, [1, 25, 50, 100], fout, 'SNF')
+    if 'SNF' in X:
+        getEvalStatistics(X['SNF'], Ks, [1, 25, 50, 100], fout, 'Early SNF')
     W = 20 #Number of nearest neighbors to take in the network
     FusedScores = doSimilarityFusion(Scores, W, 20, 1, PlotNames)
-    sio.savemat("SHSResults.mat", {"Chromas":X['Chromas'], "MFCCs":X['MFCCs'], "SSMs":X['SSMs'], "SNF":FusedScores})
-    getEvalStatistics(FusedScores, Ks, [1, 25, 50, 100], fout, "SNF")
+    AllRes = {}
+    for F in PlotNames + ['SNF']:
+        if F in X:
+            AllRes[F] = X[F]
+    AllRes['LateSNF'] = FusedScores
+    sio.savemat('SHSDataset/SHSScores.mat', AllRes)
+    getEvalStatistics(FusedScores, Ks, [1, 25, 50, 100], fout, "Late SNF")
     fout.write("</table>")
     fout.close()

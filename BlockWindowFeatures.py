@@ -283,22 +283,8 @@ def makeColorbar(k = 3):
     cax = divider.append_axes("right", size="5%", pad = 0.05)
     plt.colorbar(cax = cax)
 
-def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, song1name = 'Song 1', song2name = 'Song 2'):
-    print "Getting features for %s..."%filename1
-    (XAudio, Fs) = getAudio(filename1)
-    (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize)
-    (Features1, O1) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
-
-    print "Getting features for %s..."%filename2
-    (XAudio, Fs) = getAudio(filename2)
-    (tempo, beats) = getBeats(XAudio, Fs, TempoBias2, hopSize)
-    (Features2, O2) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
-
-    print "Feature Types: ", Features1.keys()
-
-    Results = {'filename1':filename1, 'filename2':filename2, 'TempoBias1':TempoBias1, 'TempoBias2':TempoBias2, 'hopSize':hopSize, 'FeatureParams':FeatureParams, 'CSMTypes':CSMTypes, 'Kappa':Kappa}
+def compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa, fileprefix, NIters = 3, K = 20, song1name = 'Song 1', song2name = 'Song 2'):
     plt.figure(figsize=(18, 5))
-
     #Do each feature individually
     for FeatureName in Features1:
         plt.clf()
@@ -323,8 +309,6 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
 
     #Do cross-similarity fusion
     plt.clf()
-    K = 20
-    NIters = 3
     res = getCSMSmithWatermanScoresEarlyFusionFull([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], True)
     plt.clf()
     Results['CSMFused'] = res['CSM']
@@ -343,3 +327,20 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
     plt.savefig("%s_CSMs_Fused.svg"%fileprefix, dpi=200, bbox_inches='tight')
 
     sio.savemat("%s.mat"%fileprefix, Results)
+
+def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, song1name = 'Song 1', song2name = 'Song 2'):
+    print "Getting features for %s..."%filename1
+    (XAudio, Fs) = getAudio(filename1)
+    (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize)
+    (Features1, O1) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
+
+    print "Getting features for %s..."%filename2
+    (XAudio, Fs) = getAudio(filename2)
+    (tempo, beats) = getBeats(XAudio, Fs, TempoBias2, hopSize)
+    (Features2, O2) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
+
+    print "Feature Types: ", Features1.keys()
+
+    Results = {'filename1':filename1, 'filename2':filename2, 'TempoBias1':TempoBias1, 'TempoBias2':TempoBias2, 'hopSize':hopSize, 'FeatureParams':FeatureParams, 'CSMTypes':CSMTypes, 'Kappa':Kappa}
+
+    compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa, fileprefix, song1name = 'Song 1', song2name = 'Song 2')
