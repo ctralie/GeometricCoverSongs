@@ -4,6 +4,8 @@ import os
 import glob
 import scipy.io as sio
 import subprocess
+import time
+from sys import exit, argv
 from CSMSSMTools import *
 from BlockWindowFeatures import *
 
@@ -87,67 +89,88 @@ def getSongPrefixes():
         AllSongs += songs
     return AllSongs
 
-def getCovers1000Features(fileprefix, TempoBias):
+def getCovers1000Features(fileprefix, TempoBiases = [60, 120, 180]):
     beats = sio.loadmat("%s_Beats.mat"%fileprefix)
-    beats1 = beats['beats%i'%TempoBias].flatten()
-    tempo = beats['tempo%i'%TempoBias]
     MFCCs = sio.loadmat("%s_MFCC.mat"%fileprefix)
     XMFCC = MFCCs['XMFCC']
     Fs = MFCCs['Fs']
     hopSize = MFCCs['hopSize']
     XChroma = sio.loadmat("%s_HPCP.mat"%fileprefix)['XHPCP']
-    (Features1, O1) = getBlockWindowFeatures((None, Fs, tempo, beats1, hopSize, FeatureParams), XMFCC, XChroma)
-    return (Features1, O1)
+    tempos = []
+    Features = []
+    for TempoBias in TempoBiases:
+        beats1 = beats['beats%i'%TempoBias].flatten()
+        tempo = beats['tempo%i'%TempoBias]
+        tempos.append(tempo)
+        if len(tempos) > 1:
+            if np.min(np.array(tempos[0:-1]) - tempo) == 0:
+                print "Rendundant tempo"
+                tempos.pop()
+                continue
+        (Features1, O1) = getBlockWindowFeatures((None, Fs, tempo, beats1, hopSize, FeatureParams), XMFCC, XChroma)
+        Features.append((Features1, O1))
+    return Features
 
-def compareSongs1000(Features1, O1, Features2, O2, BeatsPerBlock, Kappa, FeatureParams):
+def compareSongs1000(Features1List, Features2List, BeatsPerBlock, Kappa, FeatureParams, K = 20, NIters = 3):
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
-
     #Do each feature individually
-    FeatureCSMs = {}
+    Results = {'SNF':0}
+    (Features1, O1) = Features1List[0]
     for FeatureName in Features1:
-        print "Doing %s..."%FeatureName
-        res =  getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
-        CSMs = {}
-        CSMs['D'] = res['D']
-        CSMs['CSM'] = res['CSM']
-        CSMs['DBinary'] = 1-res['DBinary']
-        CSMs['score'] = res['score']
-        FeatureCSMs[FeatureName] = CSMs;
+        Results[FeatureName] = 0
+    #Compare all tempo levels
+    for i in range(len(Features1List)):
+        (Features1, O1) = Features1List[i]
+        for j in range(len(Features2List)):
+            (Features2, O2) = Features2List[j]
+            for FeatureName in Features1:
+                Results[FeatureName] =  max(Results[FeatureName], getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], False))
 
-    #Do OR Merging
-    print "Doing OR Merging..."
-    res = getCSMSmithWatermanScoresORMerge([Features1, O1, Features2, O2, Kappa, CSMTypes], True)
-    CSMs = {}
-    CSMs['D'] = res['D']
-    CSMs['CSM'] = res['D']
-    CSMs['DBinary'] = CSMs['CSM']
-    CSMs['score'] = res['score']
-    CSMs['FeatureName'] = 'ORFusion'
-    FeatureCSMs['ORFusion'] = CSMs
-
-    #Do cross-similarity fusion
-    print "Doing similarity network fusion..."
-    K = 20
-    NIters = 3
-    res = getCSMSmithWatermanScoresEarlyFusionFull([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], True)
-    CSMs = {}
-    CSMs['D'] = res['D']
-    CSMs['CSM'] = res['CSM']
-    CSMs['DBinary'] = 1-res['DBinary']
-    CSMs['score'] = res['score']
-    FeatureCSMs['SNF'] = CSMs
-
-    for f in FeatureCSMs:
-        CSMs = FeatureCSMs[f]
-        plt.subplot(121)
-        plt.imshow(CSMs['CSM'], cmap = 'afmhot')
-        plt.title(f)
-        plt.subplot(122)
-        plt.imshow(CSMs['D'], cmap = 'afmhot')
-        plt.savefig("%s.svg"%f, bbox_inches = 'tight')
+            #Do cross-similarity fusion
+            res = getCSMSmithWatermanScoresEarlyFusionFull([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], False)['score']
+            Results['SNF'] = max(res, Results['SNF'])
+    return Results
 
 
 if __name__ == '__main__':
+    if len(argv) < 7:
+        print argv
+        print "Usage: python covers1000.py <start1> <end1> <start2> <end2> <Kappa> <BeatsPerBlock>"
+        exit(0)
+    AllSongs = getSongPrefixes()
+    N = len(AllSongs)
+    [s1, e1, s2, e2] = [int(a) for a in argv[1:5]]
+    Kappa = float(argv[5])
+    BeatsPerBlock = int(argv[6])
+
+    FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':BeatsPerBlock, 'ChromasPerBlock':40}
+
+    songs1 = AllSongs[s1:e1+1]
+    songs2 = AllSongs[s2:e2+1]
+
+    AllFeatures1 = []
+    AllFeatures2 = []
+    for i in range(len(songs1)):
+        print "Getting features 1 %i of %i"%(i, len(songs1))
+        AllFeatures1.append(getCovers1000Features(songs1[i]))
+    for j in range(len(songs2)):
+        print "Getting features 2 %i of %i"%(j, len(songs2))
+        AllFeatures2.append(getCovers1000Features(songs2[j]))
+
+    AllResults = {}
+    tic = time.time()
+    for i in range(len(songs1)):
+        print "Comparing %i of %i"%(i+1, len(songs1))
+        for j in range(len(songs2)):
+            Results = compareSongs1000(AllFeatures1[i], AllFeatures2[j], BeatsPerBlock, Kappa, FeatureParams)
+            for F in Results:
+                if not F in AllResults:
+                    AllResults[F] = np.zeros((len(songs1), len(songs2)))
+                AllResults[F][i, j] = Results[F]
+    print "Elapsed Time: ", time.time() - tic
+    sio.savemat("Results_%i_%i_%i_%i.mat"%(s1, e1, s2, e2), AllResults)
+
+if __name__ == '__main__2':
     FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
     BeatsPerBlock = 20
     Kappa = 0.1
@@ -155,4 +178,4 @@ if __name__ == '__main__':
 
     (Features1, O1) = getCovers1000Features(AllSongs[0], 120)
     (Features2, O2) = getCovers1000Features(AllSongs[1], 120)
-    compareSongs1000(Features1, O1, Features2, O2, BeatsPerBlock, Kappa, FeatureParams)
+    print compareSongs1000(Features1, O1, Features2, O2, BeatsPerBlock, Kappa, FeatureParams)

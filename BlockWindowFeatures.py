@@ -237,7 +237,6 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
         NChromaBins = FeatureParams['NChromaBins']
     if 'ChromasFTM2D' in FeatureParams:
         FTM2D = FeatureParams['ChromasFTM2D']
-    print "FTM2D = ", FTM2D
 
     XChroma = np.array([])
     if usingChroma:
