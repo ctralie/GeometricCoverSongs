@@ -135,18 +135,23 @@ def compareSongs1000(Features1List, Features2List, BeatsPerBlock, Kappa, Feature
 if __name__ == '__main__':
     if len(argv) < 7:
         print argv
-        print "Usage: python covers1000.py <start1> <end1> <start2> <end2> <Kappa> <BeatsPerBlock>"
+        print "Usage: python covers1000.py <start> <end> <BatchSize> <BatchNum> <Kappa> <BeatsPerBlock>"
         exit(0)
     AllSongs = getSongPrefixes()
-    N = len(AllSongs)
-    [s1, e1, s2, e2] = [int(a) for a in argv[1:5]]
+    [start, end, BatchSize, BatchNum] = [int(a) for a in argv[1:5]]
     Kappa = float(argv[5])
     BeatsPerBlock = int(argv[6])
 
     FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':BeatsPerBlock, 'ChromasPerBlock':40}
 
-    songs1 = AllSongs[s1:e1+1]
-    songs2 = AllSongs[s2:e2+1]
+    songs = AllSongs[start:end+1]
+    N = len(songs)/BatchSize
+    [I, J] = np.meshgrid(np.arange(N), np.arange(N))
+    [I, J] = [I.flatten(), J.flatten()]
+    s1 = I[BatchNum]*BatchSize
+    s2 = J[BatchNum]*BatchSize
+    songs1 = AllSongs[s1:s1+BatchSize]
+    songs2 = AllSongs[s2:s2+BatchSize]
 
     AllFeatures1 = []
     AllFeatures2 = []
@@ -168,7 +173,10 @@ if __name__ == '__main__':
                     AllResults[F] = np.zeros((len(songs1), len(songs2)))
                 AllResults[F][i, j] = Results[F]
     print "Elapsed Time: ", time.time() - tic
-    sio.savemat("Results_%i_%i_%i_%i.mat"%(s1, e1, s2, e2), AllResults)
+    AllResults['s1'] = s1
+    AllResults['s2'] = s2
+    AllResults['BatchSize'] = BatchSize
+    sio.savemat("Results_%i.mat"%BatchNum, AllResults)
 
 if __name__ == '__main__2':
     FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
