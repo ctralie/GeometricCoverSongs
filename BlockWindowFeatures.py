@@ -11,13 +11,11 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from CSMSSMTools import *
 from CurvatureTools import *
 from SpectralMethods import *
-from MusicFeatures import *
-import librosa
 import subprocess
 
 #Need to specify hopSize as as parameter so that beat onsets
 #Align with MFCC and chroma windows
-def getBlockWindowFeatures(args):
+def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.array([])):
     #Unpack parameters
     (XAudio, Fs, tempo, beats, hopSize, FeatureParams) = args
     NBeats = len(beats)-1
@@ -119,7 +117,11 @@ def getBlockWindowFeatures(args):
     #Step 3: Compute Mel-Spaced log STFTs
     XMFCC = np.array([])
     if usingMFCC:
-        XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
+        if XMFCCParam.size == 0:
+            from MusicFeatures import getMFCCs
+            XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
+        else:
+            XMFCC = XMFCCParam
     else:
         NMFCCBlocks = 0
 
@@ -242,10 +244,12 @@ def getBlockWindowFeatures(args):
         BlockFeatures['Chromas'] = np.zeros((NChromaBlocks, ChromasPerBlock*NChromaBins))
         if FTM2D:
             BlockFeatures['ChromasFTM2D'] = np.zeros((NChromaBlocks, ChromasPerBlock*NChromaBins))
-        #XChroma = getCensFeatures(XAudio, Fs, hopSize)
-        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
-        #librosa.display.specshow(XChroma, y_axis='chroma', x_axis='time')
-        #plt.show()
+        if XChromaParam.size == 0:
+            from MusicFeatures import getHPCPEssentia
+            #XChroma = getCensFeatures(XAudio, Fs, hopSize)
+            XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
+        else:
+            XChroma = XChromaParam
         OtherFeatures['ChromaMean'] = np.mean(XChroma, 1)
     for i in range(NChromaBlocks):
         i1 = beats[i]
@@ -329,6 +333,7 @@ def compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa
     sio.savemat("%s.mat"%fileprefix, Results)
 
 def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, song1name = 'Song 1', song2name = 'Song 2'):
+    from MusicFeatures import getAudio, getBeats
     print "Getting features for %s..."%filename1
     (XAudio, Fs) = getAudio(filename1)
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize)
