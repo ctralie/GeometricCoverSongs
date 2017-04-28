@@ -229,13 +229,14 @@ if __name__ == '__main__':
     fin = open('covers32k/list2.list', 'r')
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
-    for index in [6]:#[4, 6, 67]:
+    for index in [4, 6, 67]:
         filename1 = "covers32k/" + files1[index] + ".mp3"
         filename2 = "covers32k/" + files2[index] + ".mp3"
         fileprefix = "Covers80_%i"%index
 
         artist1 = getArtistName(files1[index])
         artist2 = getArtistName(files2[index])
+        print "artist1 = ", artist1
         songName = getSongName(files1[index])
 
         #filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
@@ -246,8 +247,8 @@ if __name__ == '__main__':
         #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':200, 'MFCCBeatsPerBlock':20}
 
         CurvSigmas = [10, 60]
-        #FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
-        FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':160, 'ChromasFTM2D':True}
+        FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
+        #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':160, 'ChromasFTM2D':True}
 
         CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI', 'ChromasFTM2D':'Euclidean'}
         for sigma in CurvSigmas:

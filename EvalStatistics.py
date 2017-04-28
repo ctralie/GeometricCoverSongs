@@ -70,11 +70,29 @@ def getEvalStatistics(ScoresParam, Ks, topsidx, fout, name):
     fout.write("</tr>\n\n")
     return (MR, MRR, MDR, tops)
 
+def getCovers1000Ks():
+    import glob
+    Ks = []
+    for i in range(1, 396):
+        songs = glob.glob("Covers1000/%i/*.txt"%i)
+        Ks.append(len(songs))
+    return Ks
+
 if __name__ == '__main__':
+    Scores = sio.loadmat("Covers1000Results.mat")
+    Ks = getCovers1000Ks()
+    fout = open("Covers1000Results.html", "a")
+    for FeatureName in ['MFCCs', 'SSMs', 'Chromas', 'SNF']:
+        S = Scores[FeatureName]
+        S = np.maximum(S, S.T)
+        getEvalStatistics(S, Ks, [1, 25, 50, 100], fout, FeatureName)
+    fout.close()
+
+if __name__ == '__main__2':
     Scores = sio.loadmat("SHSResults.mat")
     SHSIDs = sio.loadmat("SHSIDs.mat")
     Ks = SHSIDs['Ks'].flatten()
     fout = open("SHSDataset/results.html", "a")
     for FeatureName in ['Chromas', 'MFCCs', 'SSMs']:
-        getEvalStatistics(Scores[FeatureName], Ks, [1, 25, 50, 100], FeatureName)
+        getEvalStatistics(Scores[FeatureName], Ks, [1, 25, 50, 100], fout, FeatureName)
     fout.close()

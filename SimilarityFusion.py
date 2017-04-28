@@ -171,9 +171,9 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
     Ws = [getW(D, K) for D in Scores]
     return doSimilarityFusionWs(Ws, K, NIters, reg, PlotNames)
 
-if __name__ == '__main__2':
-    X = sio.loadmat('Scores7.mat')
-    PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresCENS']
+if __name__ == '__main__':
+    X = sio.loadmat('Scores4.mat')
+    PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresSNF']
     #PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
     Scores = [X[s] for s in PlotNames]
     for i in range(len(Scores)):
@@ -187,15 +187,17 @@ if __name__ == '__main__2':
     getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 25, 50, 100], fout, name = "Jumps10/Jumps60/Curvs60, 20NN, 1Reg")
     fout.close()
 
-if __name__ == '__main__':
-    X = sio.loadmat('SHSDataset/SHSScores.mat')
-    SHSIDs = sio.loadmat("SHSDataset/SHSIDs.mat")
-    Ks = SHSIDs['Ks'].flatten()
-    PlotNames = ['Chromas', 'SSMs', 'MFCCs']
-    #PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
+if __name__ == '__main__2':
+    #X = sio.loadmat('SHSDataset/SHSScores.mat')
+    X = sio.loadmat('Covers1000Results.mat')
+    #SHSIDs = sio.loadmat("SHSDataset/SHSIDs.mat")
+    #Ks = SHSIDs['Ks'].flatten()
+    Ks = getCovers1000Ks()
+    PlotNames = ['Chromas', 'SSMs', 'MFCCs', 'SNF']
     Scores = [X[s] for s in PlotNames]
+    print Scores
     N = Scores[0].shape[0]
-    fout = open("SHSDataset/results%i.html"%N, "a")
+    fout = open("Covers1000Results.html", "a")
     fout.write("""
     <table border = "1" cellpadding = "10">
 <tr><td><h3>Name</h3></td><td><h3>Mean Rank</h3></td><td><h3>Mean Reciprocal Rank</h3></td><td><h3>Median Rank</h3></td><td><h3>Top-01</h3></td><td><h3>Top-25</h3></td><td><h3>Top-50</h3></td><td><h3>Top-100</h3></td></tr>      """)

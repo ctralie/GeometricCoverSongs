@@ -273,25 +273,40 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
 
     return (BlockFeatures, OtherFeatures)
 
-def plotSongLabels(song1, song2, k = 3):
-    for i in range(k):
-        plt.subplot(1, k, i+1)
+def plotSongLabels(song1, song2, dim1 = 1, dim2 = 3):
+    for k in range(dim1*dim2):
+        plt.subplot(dim1, dim2, k+1)
         plt.xlabel("%s Beat Index"%song2)
         plt.ylabel("%s Beat Index"%song1)
 
-def makeColorbar(k = 3):
-    plt.subplot(1, k, k)
+def makeColorbar(dim1 = 1, dim2 = 3, k = 3):
+    plt.subplot(dim1, dim2, k)
     ax = plt.gca()
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad = 0.05)
     plt.colorbar(cax = cax)
 
+def makeISMIRPlot(AllDs, fileprefix, song1name, song2name):
+    plt.clf()
+    NSubplots = len(AllDs)
+    plt.figure(figsize=(NSubplots*4.5, 3.5))
+    for i in range(NSubplots):
+        plt.subplot(1, NSubplots, i+1)
+        (FeatureName, D) = AllDs[i]
+        plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
+        plt.title("%s Score = %g"%(FeatureName, np.max(D)))
+        makeColorbar(1, NSubplots, i+1)
+    plotSongLabels(song1name, song2name, 1, NSubplots)
+    plt.savefig("%s.svg"%fileprefix, bbox_inches = 'tight')        
+
 def compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa, fileprefix, NIters = 3, K = 20, song1name = 'Song 1', song2name = 'Song 2'):
     plt.figure(figsize=(18, 5))
     #Do each feature individually
+    AllDs = []
     for FeatureName in Features1:
         plt.clf()
-        score = getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
+        res = getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
+        AllDs.append((FeatureName, res['D']))
         plotSongLabels(song1name, song2name)
         makeColorbar()
         plt.subplot(131)
@@ -328,6 +343,8 @@ def compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa
     plotSongLabels(song1name, song2name)
     makeColorbar()
     plt.savefig("%s_CSMs_Fused.svg"%fileprefix, dpi=200, bbox_inches='tight')
+    AllDs.append(('SNF', res['D']))
+    makeISMIRPlot(AllDs, fileprefix, song1name, song2name)
 
     sio.savemat("%s.mat"%fileprefix, Results)
 
@@ -347,4 +364,4 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
 
     Results = {'filename1':filename1, 'filename2':filename2, 'TempoBias1':TempoBias1, 'TempoBias2':TempoBias2, 'hopSize':hopSize, 'FeatureParams':FeatureParams, 'CSMTypes':CSMTypes, 'Kappa':Kappa}
 
-    compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa, fileprefix, song1name = 'Song 1', song2name = 'Song 2')
+    compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa, fileprefix, song1name = song1name, song2name = song2name)
