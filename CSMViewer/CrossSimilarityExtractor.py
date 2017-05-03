@@ -2,8 +2,8 @@
 #Purpose: To extract cover song alignments for use in the GUI
 import numpy as np
 import sys
-sys.path.append("../GeometricCoverSongs")
-sys.path.append("../GeometricCoverSongs/SequenceAlignment")
+sys.path.append("../")
+sys.path.append("../SequenceAlignment")
 import os
 import glob
 import scipy.io as sio
