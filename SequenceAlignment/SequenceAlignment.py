@@ -63,3 +63,38 @@ def swalignimpconstrained(CSM):
             if (D[i, j] > maxD):
                 maxD = D[i, j]
     return (maxD, D)
+
+
+def SWBacktrace(CSM):
+    N = CSM.shape[0]+1
+    M = CSM.shape[1]+1
+    D = np.zeros((N, M))
+    B = np.zeros((N, M), dtype = np.int64) #Backpointer indices
+    pointers = [[-1, -1], [-2, -1], [-1, -2], None] #Backpointer directions
+    maxD = 0
+    maxidx = [0, 0]
+    for i in range(3, N):
+        for j in range(3, M):
+            MS = Match(CSM[i-1, j-1])
+            #H_(i-1, j-1) + S_(i-1, j-1) + delta(S_(i-2,j-2), S_(i-1, j-1))
+            d1 = D[i-1, j-1] + MS + Delta(CSM[i-2, j-2], CSM[i-1, j-1])
+            #H_(i-2, j-1) + S_(i-1, j-1) + delta(S_(i-3, j-2), S_(i-1, j-1))
+            d2 = D[i-2, j-1] + MS + Delta(CSM[i-3, j-2], CSM[i-1, j-1])
+            #H_(i-1, j-2) + S_(i-1, j-1) + delta(S_(i-2, j-3), S_(i-1, j-1))
+            d3 = D[i-1, j-2] + MS + Delta(CSM[i-2, j-3], CSM[i-1, j-1])
+            arr = [d1, d2, d3, 0.0]
+            D[i, j] = np.max(arr)
+            B[i, j] = np.argmax(arr)
+            if (D[i, j] > maxD):
+                maxD = D[i, j]
+                maxidx = [i, j]
+    #Backtrace starting at the largest index
+    path = [maxidx]
+    idx = maxidx
+    while B[idx[0], idx[1]] < 3:
+        i = B[idx[0], idx[1]]
+        idx = [idx[0]+pointers[i][0], idx[1] + pointers[i][1]]
+        if idx[0] < 3 or idx[1] < 3:
+            break
+        path.append(idx)
+    return (maxD, D, path)

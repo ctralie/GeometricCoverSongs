@@ -3,7 +3,9 @@
 *Helps from following links:
 *http://docs.scipy.org/doc/numpy/user/c-info.how-to-extend.html
 *https://scipy-lectures.github.io/advanced/interfacing_with_c/interfacing_with_c.html
-*Special thanks especially to http://dan.iel.fm/posts/python-c-extensions/*/
+*Special thanks especially to http://dan.iel.fm/posts/python-c-extensions */
+
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
 #include <Python.h>
 #include <numpy/arrayobject.h>
@@ -48,7 +50,8 @@ static PyObject *SequenceAlignment_swalignimp(PyObject *self, PyObject *args)
         return NULL;
 
     /* Interpret the input objects as numpy arrays. */
-    PyObject *S_array = PyArray_FROM_OTF(S_obj, NPY_DOUBLE, NPY_IN_ARRAY);
+    // PyObject *S_array = PyArray_FROM_OTF(S_obj, NPY_DOUBLE, NPY_IN_ARRAY);
+    double *S_array = (double*) PyArray_DATA((PyArrayObject *) S_obj);
     
     /* If that didn't work, throw an exception. */
     if (S_array == NULL) {
@@ -56,11 +59,11 @@ static PyObject *SequenceAlignment_swalignimp(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    int N = (int)PyArray_DIM(S_array, 0);
-    int M = (int)PyArray_DIM(S_array, 1);
+    int N = (int)PyArray_DIM((const PyArrayObject *) S_array, 0);
+    int M = (int)PyArray_DIM((const PyArrayObject *) S_array, 1);
 
     /* Get pointers to the data as C-types. */
-    double *S    = (double*)PyArray_DATA(S_array);
+    double *S    = (double*)PyArray_DATA((PyArrayObject *) S_array);
 
     /* Perform Smith Waterman */
     double score = swalignimp(S, N, M);
@@ -82,7 +85,8 @@ static PyObject *SequenceAlignment_swalignimpconstrained(PyObject *self, PyObjec
         return NULL;
 
     /* Interpret the input objects as numpy arrays. */
-    PyObject *S_array = PyArray_FROM_OTF(S_obj, NPY_DOUBLE, NPY_IN_ARRAY);
+    // PyObject *S_array = PyArray_FROM_OTF(S_obj, NPY_DOUBLE, NPY_IN_ARRAY);
+    double *S_array = (double*) PyArray_DATA((PyArrayObject *) S_obj);
     
     /* If that didn't work, throw an exception. */
     if (S_array == NULL) {
@@ -90,11 +94,11 @@ static PyObject *SequenceAlignment_swalignimpconstrained(PyObject *self, PyObjec
         return NULL;
     }
 
-    int N = (int)PyArray_DIM(S_array, 0);
-    int M = (int)PyArray_DIM(S_array, 1);
+    int N = (int)PyArray_DIM((const PyArrayObject *) S_array, 0);
+    int M = (int)PyArray_DIM((const PyArrayObject *) S_array, 1);
 
     /* Get pointers to the data as C-types. */
-    double *S    = (double*)PyArray_DATA(S_array);
+    double *S    = (double*)PyArray_DATA((PyArrayObject *) S_array);
 
     /* Perform Smith Waterman */
     double score = swalignimpconstrained(S, N, M);
