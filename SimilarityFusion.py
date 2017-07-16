@@ -172,19 +172,23 @@ def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
     return doSimilarityFusionWs(Ws, K, NIters, reg, PlotNames)
 
 if __name__ == '__main__':
+    fout = open("Covers80ResultsFinal.html", "a")
+    #fout.write("""
+   # <table border = "1" cellpadding = "10">
+#<tr><td><h3>Name</h3></td><td><h3>Mean Rank</h3></td><td><h3>Mean Reciprocal Rank</h3></td><td><h3>Median #Rank</h3></td><td><h3>Top-01</h3></td><td><h3>Top-10</h3></td><td><h3>Covers80</h3></td></tr>      """)
+
     X = sio.loadmat('Scores4.mat')
-    PlotNames = ['ScoresSSMs', 'ScoresHPCP', 'ScoresMFCCs', 'ScoresSNF']
+    PlotNames = ['ScoresSSMs', 'ScoresMFCCs']#, 'ScoresSNF']
     #PlotNames = ['ScoresJumps10', 'ScoresJumps60', 'ScoresCurvs60']
     Scores = [X[s] for s in PlotNames]
     for i in range(len(Scores)):
         #Smith waterman returns larger scores for more similar songs,
         #but we want the graph kernel to be closer to 0 for similar objects
+        #getCovers80EvalStatistics(Scores[i], 160, 80, [1, 10], fout, PlotNames[i])
         Scores[i] = 1.0/Scores[i]
-
     W = 20 #Number of nearest neighbors to take in the network
     FusedScores = doSimilarityFusion(Scores, W, 20, 1, PlotNames)
-    fout = open("resultsFusion.html", "a")
-    getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 25, 50, 100], fout, name = "Jumps10/Jumps60/Curvs60, 20NN, 1Reg")
+    getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 10], fout, name = "Late")
     fout.close()
 
 if __name__ == '__main__2':
@@ -193,21 +197,21 @@ if __name__ == '__main__2':
     #SHSIDs = sio.loadmat("SHSDataset/SHSIDs.mat")
     #Ks = SHSIDs['Ks'].flatten()
     Ks = getCovers1000Ks()
-    PlotNames = ['Chromas', 'SSMs', 'MFCCs', 'SNF']
+    PlotNames = ['Chromas', 'SSMs', 'MFCCs']
     Scores = [X[s] for s in PlotNames]
     print Scores
     N = Scores[0].shape[0]
     fout = open("Covers1000Results.html", "a")
     fout.write("""
     <table border = "1" cellpadding = "10">
-<tr><td><h3>Name</h3></td><td><h3>Mean Rank</h3></td><td><h3>Mean Reciprocal Rank</h3></td><td><h3>Median Rank</h3></td><td><h3>Top-01</h3></td><td><h3>Top-25</h3></td><td><h3>Top-50</h3></td><td><h3>Top-100</h3></td></tr>      """)
+<tr><td><h3>Name</h3></td><td><h3>Mean Rank</h3></td><td><h3>Mean Reciprocal Rank</h3></td><td><h3>Median Rank</h3></td><td><h3>Top-01</h3></td><td><h3>Top-10</h3></td></tr>      """)
     for i in range(len(Scores)):
         #Smith waterman returns larger scores for more similar songs,
         #but we want the graph kernel to be closer to 0 for similar objects
-        getEvalStatistics(Scores[i], Ks, [1, 25, 50, 100], fout, PlotNames[i])
+        getEvalStatistics(Scores[i], Ks, [1, 10], fout, PlotNames[i])
         Scores[i] = 1.0/(0.1 + Scores[i])
     if 'SNF' in X:
-        getEvalStatistics(X['SNF'], Ks, [1, 25, 50, 100], fout, 'Early SNF')
+        getEvalStatistics(X['SNF'], Ks, [1, 10], fout, 'Early SNF')
     W = 20 #Number of nearest neighbors to take in the network
     FusedScores = doSimilarityFusion(Scores, W, 20, 1, PlotNames)
     AllRes = {}

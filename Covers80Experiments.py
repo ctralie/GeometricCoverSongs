@@ -229,7 +229,7 @@ if __name__ == '__main__':
     fin = open('covers32k/list2.list', 'r')
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
-    for index in [4, 6, 67]:
+    for index in [4]:#[4, 6, 67]:
         filename1 = "covers32k/" + files1[index] + ".mp3"
         filename2 = "covers32k/" + files2[index] + ".mp3"
         fileprefix = "Covers80_%i"%index

@@ -107,16 +107,30 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
 if __name__ == '__main__':
     Kappa = 0.1
     hopSize = 512
-    TempoBias1 = 180
-    TempoBias2 = 180
+    TempoBias1 = 120
+    TempoBias2 = 120
 
     
-    filename1 = "MJ.mp3"
-    filename2 = "AAF.mp3"
-    fileprefix = "SmoothCriminal"
-    artist1 = "Michael Jackson"
-    artist2 = "Alien Ant Farm"
-    songName = "Smooth Criminal"
+#    filename1 = "MJ.mp3"
+#    filename2 = "AAF.mp3"
+#    fileprefix = "SmoothCriminal"
+#    artist1 = "Michael Jackson"
+#    artist2 = "Alien Ant Farm"
+#    songName = "Smooth Criminal"
+
+#    filename1 = "Eurythmics.mp3"
+#    filename2 = "MarilynManson.mp3"
+#    artist1 = "Eurythmics"
+#    artist2 = "Marilyn Manson"
+#    fileprefix = "sweetdreams"
+#    songName = "Sweet Dreams"
+
+    filename1 = "BadCompany.mp3"
+    filename2 = "BadCompanyFive.mp3"
+    artist1 = "Bad Company"
+    artist2 = "Five Finger Discount"
+    fileprefix = "badcompany"
+    songName = "Bad Company"
 
 
     FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}

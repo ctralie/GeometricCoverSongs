@@ -274,7 +274,7 @@ def getScoresEarlyORMerge(AllFeatures, OtherFeatures, Kappa, CSMTypes):
 ######################################################
 ##          Early Fusion Smith Waterman Tests       ##
 ######################################################
-def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False):
+def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative = False):
     [AllFeatures1, O1, AllFeatures2, O2, Kappa, K, NIters, CSMTypes] = args
     CSMs = [] #Individual CSMs
     Ws = [] #W built from fused CSMs/SSMs
@@ -294,10 +294,20 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False):
     t1 = toc - tic
     N = AllFeatures1[Features[0]].shape[0]
     CSM = D[0:N, N::] + D[N::, 0:N].T
+    sio.savemat("CSM.mat", {"CSM":CSM})
     #Note that the CSM is in probabalistic weight form, so the
     #"nearest neighbors" are actually those with highest weight.  So
     #apply monotonic exp(-CSM) to fix this
-    DBinary = CSMToBinaryMutual(np.exp(-CSM), Kappa)
+    
+    if conservative:
+        x = CSM.flatten()
+        x = x[np.argsort(-x)]
+        cutoff = x[int(3*np.sqrt(CSM.size))]
+        DBinary = np.array(CSM)
+        DBinary[CSM < cutoff] = 0
+        DBinary[DBinary > 0] = 1
+    else:
+        DBinary = CSMToBinaryMutual(np.exp(-CSM), Kappa)
 
     if doPlot:
         print "Elapsed Time Similarity Fusion: ", t1
@@ -321,10 +331,10 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False):
         plt.imshow(1-DBinary, interpolation = 'nearest', cmap = 'gray')
         plt.title('CSM Binary W Fused')
         plt.subplot(3, N+1, 3*N+3)
-        (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
+        (maxD, D, path) = SequenceAlignment.SWBacktrace(DBinary)
         plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
         plt.title("Fused Score = %g"%maxD)
-        return {'score':maxD, 'CSM':CSM, 'DBinary':DBinary, 'D':D, 'maxD':maxD}
+        return {'score':maxD, 'CSM':CSM, 'DBinary':DBinary, 'D':D, 'maxD':maxD, 'path':path}
     return {'score':_SequenceAlignment.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary}
 
 def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
