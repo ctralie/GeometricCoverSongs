@@ -72,6 +72,8 @@ body {
     var song2name = "";
     var scoreTxt = document.getElementById("score");
     var songnameTxt = document.getElementById("songname");
+    var csmcanvas = document.getElementById('CrossSimilarityCanvas');
+    var dimsUpdated = false;
 
     function disconnect() {
         source.stop();
@@ -79,12 +81,13 @@ body {
         analyser.disconnect(0);
     }
 
-    csmctx = document.getElementById('CrossSimilarityCanvas').getContext('2d');
+    csmctx = csmcanvas.getContext('2d');
 	initCanvasHandlers();
 
     function selectImage() {
         if (featureType.length > 0) {
             CSImage.src = "data:image/png;base64, " + (FeatureCSMs[featureType])[imageType];
+            dimsUpdated = 0;
             requestAnimationFrame(updateCSMCanvas);
             var score = FeatureCSMs[featureType].score;
             score = Math.round(score*1000)/1000;
@@ -120,11 +123,21 @@ body {
             song1name = Results.song1name;
             song2name = Results.song2name;
             FeatureCSMs = Results.FeatureCSMs;
+
+            //Remove all feature types from the last time if they exit;
+            for (var i = selectFeatureType.options.length - 1; i >= 0; i--) {
+                selectFeatureType.remove(i);
+            }
+
             for (val in FeatureCSMs) {
                 var option = document.createElement('option');
                 option.text = val;
                 selectFeatureType.add(option, val);
+                featureType = val;
             }
+            featureType = selectFeatureType.value; //Display the currently selected feature
+
+
             imageType = "CSM";
             selectImage();
             changeToReady();

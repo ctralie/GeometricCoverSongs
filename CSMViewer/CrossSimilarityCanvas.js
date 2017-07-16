@@ -80,19 +80,30 @@ function initCanvasHandlers() {
 }
 
 function redrawCSMCanvas() {
-    csmctx.fillRect(0, 0, 1000, 1000);
-	csmctx.drawImage(CSImage, 0, 0);
-	csmctx.beginPath();
-	if (playing1) {
-		csmctx.moveTo(0, offset1idx);
-		csmctx.lineTo(CSImage.width, offset1idx);
+	if (!CSImage.complete) {
+	    //Keep requesting redraws until the image has actually loaded
+	    requestAnimationFrame(redrawCSMCanvas);
 	}
 	else {
-		csmctx.moveTo(offset2idx, 0);
-		csmctx.lineTo(offset2idx, CSImage.height);
-	}
-	csmctx.strokeStyle = '#0020ff';
-	csmctx.stroke();
+		if (!dimsUpdated) {
+			dimsUpdated = true;
+			csmcanvas.width = CSImage.width;
+            csmcanvas.height = CSImage.height;
+		}
+        csmctx.fillRect(0, 0, 1000, 1000);
+	    csmctx.drawImage(CSImage, 0, 0);
+	    csmctx.beginPath();
+	    if (playing1) {
+		    csmctx.moveTo(0, offset1idx);
+		    csmctx.lineTo(CSImage.width, offset1idx);
+	    }
+	    else {
+		    csmctx.moveTo(offset2idx, 0);
+		    csmctx.lineTo(offset2idx, CSImage.height);
+	    }
+	    csmctx.strokeStyle = '#0020ff';
+	    csmctx.stroke();
+    }
 }
 
 function updateCSMCanvas() {
