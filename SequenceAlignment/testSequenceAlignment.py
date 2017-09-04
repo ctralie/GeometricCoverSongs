@@ -2,6 +2,7 @@ import SequenceAlignment as SA
 import _SequenceAlignment as SAC
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.io as sio
 import time
 import sys
 sys.path.append("../")
@@ -39,6 +40,8 @@ def testBacktrace():
     CSM = getCSM(X1, X2)
     CSM = CSMToBinaryMutual(CSM, 0.1)
     (maxD, D, path) = SA.SWBacktrace(CSM)
+    sio.savemat("D.mat", {"D":D})
+    print "maxD = ", maxD
 
     plt.subplot(221)
     plt.plot(X1[:, 0], X1[:, 1])

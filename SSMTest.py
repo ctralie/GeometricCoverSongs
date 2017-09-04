@@ -4,9 +4,6 @@ import pickle
 import scipy.io as sio
 import os
 import time
-import sys
-sys.path.append('SequenceAlignment')
-import SequenceAlignment
 from BlockWindowFeatures import *
 from MusicFeatures import *
 from EvalStatistics import *

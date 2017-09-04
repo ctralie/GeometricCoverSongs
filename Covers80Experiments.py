@@ -5,7 +5,6 @@ import numpy as np
 from BlockWindowFeatures import *
 from MusicFeatures import *
 from EvalStatistics import *
-from multiprocessing import Pool as PPool
 
 #############################################################################
 ## Code for running the experiments
@@ -171,7 +170,7 @@ def doCovers80ExperimentsEarlyFusion(FeatureParams, hopSize, TempoBiases, Kappa,
 ## Entry points for running the experiments
 #############################################################################
 
-if __name__ == '__main__2':
+if __name__ == '__main__':
     hopSize = 512
     TempoBiases = [60, 120, 180]
     Kappa = 0.1
@@ -185,7 +184,8 @@ if __name__ == '__main__2':
     CurvSigmas = [10, 60]
     #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'CurvSigmas':CurvSigmas}
     #FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'DPixels':50, 'MFCCSamplesPerBlock':50}
-    FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'ChromasFTM2D':True}
+    FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'DPixels':50}
+    #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
 
     #What types of cross-similarity should be used to compare different blocks for different feature types
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI', 'ChromasFTM2D':'Euclidean'}
@@ -217,7 +217,7 @@ def getSongName(filename):
         s = s + " " + songname[i]
     return s
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     Kappa = 0.1
     hopSize = 512
     TempoBias1 = 180

@@ -10,10 +10,8 @@ import pickle
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from CSMSSMTools import *
-
-sys.path.append('SequenceAlignment')
-import _SequenceAlignment
-import SequenceAlignment
+import SequenceAlignment.SequenceAlignment as SA
+import SequenceAlignment._SequenceAlignment as SAC
 
 
 #############################################################################
@@ -384,9 +382,9 @@ if __name__ == "__main__":
     SSMs2 = getSSMsBeatAverage( (files2[idx], 20, 20) )
     CSM = getCSM(SSMs1, SSMs2)
     CSMB = CSMToBinaryMutual(CSM, 0.1)
-    (maxD, D) = SequenceAlignment.swalignimpconstrained(CSMB)
+    (maxD, D) = SA.swalignimpconstrained(CSMB)
     sio.savemat("Abracadabra20x20SSM.mat", {"CSM":CSM, "CSMB":CSMB, "SW":D})
-    maxD2 = _SequenceAlignment.swalignimpconstrained(CSMB)
+    maxD2 = SAC.swalignimpconstrained(CSMB)
     print "maxD = ", maxD, ", maxD2 = ", maxD2
     plt.subplot(221)
     plt.imshow(CSM, interpolation = 'none')

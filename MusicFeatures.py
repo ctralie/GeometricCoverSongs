@@ -1,19 +1,33 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-import librosa
 import scipy.misc
+import subprocess
+from scipy.io import wavfile
+from scipy.signal import spectrogram
 from CSMSSMTools import *
+import os
+TEMP_FILENAME = 'temp.wav'
 
 def getAudio(filename):
-    XAudio, Fs = librosa.load(filename)
-    XAudio = librosa.core.to_mono(XAudio)
+    toload = filename
+    if not filename[-3::] == 'wav':
+        if os.path.exists(TEMP_FILENAME):
+            os.remove(TEMP_FILENAME)
+        subprocess.call(["avconv", "-i", filename, TEMP_FILENAME])
+        toload = TEMP_FILENAME
+    Fs, XAudio = wavfile.read(toload)
+    #Convert shorts to floats
+    XAudio = np.array(XAudio, dtype = np.float32) / (2.0**16)
+    if len(XAudio.shape) > 1:
+        XAudio = np.mean(XAudio, 1)
     return (XAudio, Fs)
 
 def getBeats(XAudio, Fs, TempoBias, hopSize):
     if TempoBias == -1:
         return getDegaraOnsets(XAudio, Fs, hopSize)
     try:
+        import librosa
         (tempo, beats) = librosa.beat.beat_track(XAudio, Fs, start_bpm = TempoBias, hop_length = hopSize)
     except:
         print("Falling back to Degara for beat tracking...")
@@ -31,7 +45,54 @@ def getDegaraOnsets(XAudio, Fs, hopSize):
     beats = np.array(np.round(beats*Fs/hopSize), dtype=np.int64)
     return (tempo, beats)
 
+def getMelFilterbank(Fs, winSize, NSpectrumSamples, NBands = 40, fmin = 0.0, fmax = 8000):
+    melbounds = np.array([fmin, fmax])
+    melbounds = 1125*np.log(1 + melbounds/700.0)
+    mel = np.linspace(melbounds[0], melbounds[1], NBands+2)
+    binfreqs = 700*(np.exp(mel/1125.0) - 1)
+    binbins = np.floor(((winSize-1)/float(Fs))*binfreqs) #Floor to the nearest bin
+    binbins = np.array(binbins, dtype=np.int64)
+
+    #Step 2: Create mel triangular filterbank
+    melfbank = np.zeros((NBands, NSpectrumSamples))
+    for i in range(1, NBands+1):
+        thisbin = binbins[i]
+        lbin = binbins[i-1]
+        rbin = thisbin + (thisbin - lbin)
+        rbin = binbins[i+1]
+        melfbank[i-1, lbin:thisbin+1] = np.linspace(0, 1, 1 + (thisbin - lbin))
+        melfbank[i-1, thisbin:rbin+1] = np.linspace(1, 0, 1 + (rbin - thisbin))
+    melfbank = melfbank/np.sum(melfbank, 1)[:, None]
+    return melfbank
+
+def getDCTBasis(NDCT, NFreqs):
+    B = np.zeros((NDCT, NFreqs))
+    B[0, :] = 1.0/np.sqrt(NFreqs)
+    fs = np.arange(1, 2*NFreqs, 2)*np.pi/(2.0*NFreqs)
+    for i in range(1, NDCT):
+        B[i, :] = np.cos(i*fs)*np.sqrt(2.0/NFreqs)
+    return B
+
 def getMFCCs(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC = 20, lifterexp = 0):
+    f, t, S = spectrogram(XAudio, nperseg=winSize, noverlap=winSize-hopSize, window='blackman')
+    M = getMelFilterbank(Fs, winSize, S.shape[0], NBands, fmax = fmax)
+
+    #Convert STFT to Mel scale
+    X = M.dot(np.abs(S))
+    #Get log amplitude
+    amin = 1e-10
+    X = 10*np.log10(np.maximum(amin, X))
+    #Do DCT
+    B = getDCTBasis(NMFCC, X.shape[0])
+    X = np.dot(B, X)
+    #Do liftering
+    coeffs = np.arange(NMFCC)**lifterexp
+    coeffs[0] = 1
+    X = coeffs[:, None]*X
+    return X
+
+def getMFCCsLibrosa(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC = 20, lifterexp = 0):
+    import librosa
     S = librosa.core.stft(XAudio, winSize, hopSize)
     M = librosa.filters.mel(Fs, winSize, n_mels = NBands, fmax = fmax)
 
@@ -49,6 +110,7 @@ def getMFCCs(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC
     coeffs[0] = 1
     X = coeffs[:, None]*X
     return X
+
 
 #Norm-preserving square root (as in "chrompwr.m" by Ellis)
 def sqrtCompress(X):
@@ -79,12 +141,36 @@ def getHPCPEssentia(XAudio, Fs, winSize, hopSize, squareRoot = False, NChromaBin
         H = sqrtCompress(H)
     return H
 
+def getHPCPJVB(XAudio, Fs, winSize, hopSize, NChromaBins = 36):
+    """
+    Use Jan Van Balen's HPCP library
+    """
+    from hpcp_demo.HPCP import hpcp
+    return hpcp(XAudio, Fs, winSize, hopSize, bins_per_octave = NChromaBins).T
+
+
+
 def getCensFeatures(XAudio, Fs, hopSize, squareRoot = False):
+    import librosa
     X = librosa.feature.chroma_cens(y=XAudio, sr=Fs, hop_length = hopSize)
     if squareRoot:
         X = sqrtCompress(X)
     return X
 
+
+if __name__ == '__main__2':
+    import librosa
+    Fs = 44100
+    winSize = 22050
+    NSpectrumSamples = 22050/2+1
+    NBands = 40
+    B1 = getMelFilterbank(Fs, winSize, NSpectrumSamples, NBands, fmax = 8000)
+    B2 = librosa.filters.mel(Fs, winSize, n_mels = NBands, fmax = 8000)
+    plt.subplot(211)
+    plt.imshow(B1, cmap = 'afmhot', aspect = 'auto', interpolation = 'none')
+    plt.subplot(212)
+    plt.imshow(B2, cmap = 'afmhot', aspect = 'auto', interpolation = 'none')
+    plt.show()
 
 if __name__ == '__main__':
     import librosa
@@ -94,8 +180,11 @@ if __name__ == '__main__':
 
     hopSize = 512#8192
     winSize = hopSize*4#8192#16384
+    NChromaBins = 12
 
-    H = getHPCPEssentia(XAudio, Fs, winSize, hopSize)
+    H = getHPCPEssentia(XAudio, Fs, winSize, hopSize, NChromaBins = NChromaBins)
+    H2 = getHPCPJVB(XAudio, Fs, winSize, hopSize, NChromaBins = NChromaBins)
+    print H2.shape
 
     Cens = getCensFeatures(XAudio, Fs, hopSize, squareRoot = True)
     #Cens = librosa.feature.chroma_cens(y=XAudio, sr=Fs)
@@ -103,8 +192,13 @@ if __name__ == '__main__':
     #Cens = scipy.misc.imresize(Cens, (12, N))
     #print Cens.shape
 
-    plt.subplot(211)
-    librosa.display.specshow(H.T, y_axis='chroma', x_axis='time')
-    plt.subplot(212)
-    librosa.display.specshow(Cens, y_axis='chroma', x_axis='time')
+    plt.subplot(311)
+    plt.imshow(H, cmap = 'afmhot', interpolation = 'none', aspect = 'auto')
+    plt.title("HPCP Essentia")
+    plt.subplot(312)
+    plt.imshow(H2, cmap = 'afmhot', interpolation = 'none', aspect = 'auto')
+    plt.title("HPCP JVB")
+    plt.subplot(313)
+    plt.imshow(Cens, cmap = 'afmhot', interpolation = 'none', aspect = 'auto')
+    plt.title("CENS")
     plt.show()

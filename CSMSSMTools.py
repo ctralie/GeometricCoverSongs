@@ -1,9 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
-sys.path.append('SequenceAlignment')
-import _SequenceAlignment
-import SequenceAlignment
+import SequenceAlignment.SequenceAlignment as SA
+import SequenceAlignment._SequenceAlignment as SAC
 from SimilarityFusion import *
 import scipy.misc
 import time
@@ -168,7 +166,7 @@ def getCSMSmithWatermanScores(args, doPlot = False):
     CSM = getCSMType(Features1, O1, Features2, O2, Type)
     DBinary = CSMToBinaryMutual(CSM, Kappa)
     if doPlot:
-        (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
+        (maxD, D) = SA.swalignimpconstrained(DBinary)
         plt.subplot(131)
         plt.imshow(CSM, interpolation = 'nearest', cmap = 'afmhot')
         plt.title('CSM')
@@ -179,7 +177,7 @@ def getCSMSmithWatermanScores(args, doPlot = False):
         plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
         plt.title("Smith Waterman Score = %g"%maxD)
         return {'score':maxD, 'DBinary':DBinary, 'D':D, 'maxD':maxD, 'CSM':CSM}
-    return _SequenceAlignment.swalignimpconstrained(DBinary)
+    return SAC.swalignimpconstrained(DBinary)
 
 def getScores(Features, OtherFeatures, Kappa, CSMType):
     """
@@ -228,7 +226,7 @@ def getCSMSmithWatermanScoresORMerge(args, doPlot = False):
     DBinary[DBinary > 0] = 1
     if doPlot:
         #TODO: I have no idea why I'm seeing a large gap
-        (maxD, D) = SequenceAlignment.swalignimpconstrained(DBinary)
+        (maxD, D) = SA.swalignimpconstrained(DBinary)
         N = len(CSMs)
         for i in range(N):
             print("plt.subplot(2, %i, %i)"%(N+1, i+1))
@@ -245,7 +243,7 @@ def getCSMSmithWatermanScoresORMerge(args, doPlot = False):
         plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
         plt.title("Smith Waterman Score = %g"%maxD)
         return {'score':maxD, 'DBinary':DBinary, 'D':D, 'maxD':maxD}
-    return _SequenceAlignment.swalignimpconstrained(DBinary)
+    return SAC.swalignimpconstrained(DBinary)
 
 
 def getScoresEarlyORMerge(AllFeatures, OtherFeatures, Kappa, CSMTypes):
@@ -294,7 +292,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative 
     t1 = toc - tic
     N = AllFeatures1[Features[0]].shape[0]
     CSM = D[0:N, N::] + D[N::, 0:N].T
-    sio.savemat("CSM.mat", {"CSM":CSM})
+    #sio.savemat("CSM.mat", {"CSM":CSM})
     #Note that the CSM is in probabalistic weight form, so the
     #"nearest neighbors" are actually those with highest weight.  So
     #apply monotonic exp(-CSM) to fix this
@@ -320,7 +318,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative 
             thisDBinary = CSMToBinaryMutual(CSMs[i], Kappa)
             plt.imshow(1-thisDBinary, interpolation = 'nearest', cmap = 'gray')
             plt.title("CSM Binary %s K=%g"%(Features[i], Kappa))
-            (maxD, D) = SequenceAlignment.swalignimpconstrained(thisDBinary)
+            (maxD, D) = SA.swalignimpconstrained(thisDBinary)
             plt.subplot(3, N+1, 2*N+3+i)
             plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
             plt.title("Score = %g"%maxD)
@@ -331,11 +329,11 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative 
         plt.imshow(1-DBinary, interpolation = 'nearest', cmap = 'gray')
         plt.title('CSM Binary W Fused')
         plt.subplot(3, N+1, 3*N+3)
-        (maxD, D, path) = SequenceAlignment.SWBacktrace(DBinary)
+        (maxD, D, path) = SA.SWBacktrace(DBinary)
         plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
         plt.title("Fused Score = %g"%maxD)
         return {'score':maxD, 'CSM':CSM, 'DBinary':DBinary, 'D':D, 'maxD':maxD, 'path':path}
-    return {'score':_SequenceAlignment.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary}
+    return {'score':SAC.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary}
 
 def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
     return getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot)['score']

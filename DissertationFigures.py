@@ -1,5 +1,3 @@
-import sys
-sys.path.append("SequenceAlignment")
 from BlockWindowFeatures import *
 from Covers80Experiments import *
 from CSMSSMTools import *

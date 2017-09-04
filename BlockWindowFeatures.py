@@ -297,7 +297,7 @@ def makeISMIRPlot(AllDs, fileprefix, song1name, song2name):
         plt.title("%s Score = %g"%(FeatureName, np.max(D)))
         makeColorbar(1, NSubplots, i+1)
     plotSongLabels(song1name, song2name, 1, NSubplots)
-    plt.savefig("%s.svg"%fileprefix, bbox_inches = 'tight')        
+    plt.savefig("%s.svg"%fileprefix, bbox_inches = 'tight')
 
 def compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa, fileprefix, NIters = 3, K = 20, song1name = 'Song 1', song2name = 'Song 2'):
     plt.figure(figsize=(18, 5))

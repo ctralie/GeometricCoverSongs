@@ -4,9 +4,7 @@ import pickle
 import scipy.io as sio
 import os
 import time
-import sys
-sys.path.append('SequenceAlignment')
-import SequenceAlignment
+import SequenceAlignment.SequenceAlignment as SA
 from BlockWindowFeatures import *
 from MusicFeatures import *
 from EvalStatistics import *
@@ -151,7 +149,7 @@ def makeISMIRPlot(index):
         plt.ylabel("%s Beat Index"%artist1)
         
         #Do Smith Waterman
-        (maxD, D) = SequenceAlignment.swalignimpconstrained(B)
+        (maxD, D) = SA.swalignimpconstrained(B)
         plt.subplot(4, len(Features)+1, (len(Features)+1)*3 + 1 + i)
         plt.imshow(D, cmap = 'afmhot', interpolation = 'nearest')
         plt.title("Smith Waterman Score = %.3g"%maxD)
@@ -191,7 +189,7 @@ def makeISMIRPlot(index):
     plt.ylabel("%s Beat Index"%artist1)
     
     #Do Smith Waterman
-    (maxD, D) = SequenceAlignment.swalignimpconstrained(B)
+    (maxD, D) = SA.swalignimpconstrained(B)
     plt.subplot(4, len(Features)+1, (len(Features)+1)*4)
     plt.imshow(D, cmap = 'afmhot', interpolation = 'nearest')
     plt.title("Smith Waterman Score = %.3g"%maxD)

@@ -156,8 +156,9 @@ def testCSMTimes():
     CPUTime = time.time() - tic
 
     tic = time.time()
-    (CSMG, XSqr, YSqr) = getCSMGPU2(XG, YG)
-    #CSMG = getCSMGPU(XG, YG)
+    #(CSMG, XSqr, YSqr) = getCSMGPU2(XG, YG)
+    CSMG = getCSMGPU(XG, YG)
+    CSMG = CSMG.get()
     GPUTime = time.time() - tic
 
     #plt.plot(XSqr.get(), np.sum(X**2, 1), '.')
@@ -166,7 +167,7 @@ def testCSMTimes():
     print "CPUTime: ", CPUTime
     print "GPUTime: ", GPUTime
 
-    CSMG = CSMG.get()
+
 
     plt.subplot(131)
     plt.imshow(CSM, interpolation = 'none', cmap = 'afmhot')
