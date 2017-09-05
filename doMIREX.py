@@ -33,50 +33,86 @@ def compareBlock(args):
     thisN = idxs[3] - idxs[2]
     D = np.zeros((thisM, thisN))
 
-    Features1 = []
-    Features1Idx = {}
-    Features2 = []
+    AllFeatures = {}
+    AllSSMWs = {}
     tic = time.time()
-    for i in range(thisM):
-        idx = i + idxs[0]
+    allidxs = [i + idxs[0] for i in range(thisM)]
+    allidxs += [j + idxs[2] for j in range(thisN)]
+    allidxs = np.unique(np.array(allidxs))
+    #Compute features and precompute Ws for SSM parts
+    for idx in allidxs:
         filename = getMatFilename(scratchDir, allFiles[idx])
         X = sio.loadmat(filename)
-        Features1.append(getBlockWindowFeatures((None, X['Fs'], X['tempo'], X['beats'].flatten(), hopSize, FeatureParams), X['XMFCC'], X['XChroma']))
-        Features1Idx[idx] = i
-    for j in range(thisN):
-        idx = j + idxs[2]
-        if idx in Features1Idx:
-            Features2.append(Features1[Features1Idx[idx]])
-        else:
-            filename = getMatFilename(scratchDir, allFiles[idx])
-            X = sio.loadmat(filename)
-            Features2.append(getBlockWindowFeatures((None, X['Fs'], X['tempo'], X['beats'].flatten(), hopSize, FeatureParams), X['XMFCC'], X['XChroma']))
+        thisFeats = [] #Holds features at all tempo levels
+        thisWs = [] #Holds the SSM Ws at all tempo levels
+        k = 0
+        while 'beats%i'%k in X:
+            (Feats, O) = getBlockWindowFeatures((None, X['Fs'], X['tempo%i'%k], X['beats%i'%k].flatten(), hopSize, FeatureParams), X['XMFCC'], X['XChroma'])
+            thisFeats.append((Feats, O))
+            #Precompute the W for the SSM part for similarity network fusion
+            Ws = {}
+            for F in Feats:
+                SSM = getCSMType(Feats[F], O, Feats[F], O, CSMTypes[F])
+                K = int(0.5*Kappa*SSM.shape[0])
+                Ws[F] = getW(SSM, K)
+            thisWs.append(Ws)
+            k += 1
+        AllFeatures[idx] = thisFeats
+        AllSSMWs[idx] = thisWs
 
     K = 20
     NIters = 3
     Ds = {'SNF':np.zeros((thisM, thisN))}
-    for i in range(len(Features1)):
+    for i in range(thisM):
         print("i = %i"%i)
         stdout.flush()
-        (AllFeatures1, O1) = Features1[i]
-        for j in range(len(Features2)):
-            (AllFeatures2, O2) = Features2[j]
-            res = getCSMSmithWatermanScoresEarlyFusionFull([AllFeatures1, O1, AllFeatures2, O2, Kappa, K, NIters, CSMTypes])
-            Ds['SNF'][i, j] = res['score']
-            #In addition to fusion, compute scores for individual
-            #features to be used with the fusion later
-            for Feature in res['OtherCSMs']:
-                if not Feature in Ds:
-                    Ds[Feature] = np.zeros((thisM, thisN))
-                DBinary = CSMToBinaryMutual(res['OtherCSMs'][Feature], Kappa)
-                Ds[Feature][i, j] = SAC.swalignimpconstrained(DBinary)
-
+        AllFeatures1 = AllFeatures[i+idxs[0]]
+        SSMWs1 = AllSSMWs[i+idxs[0]]
+        for j in range(thisN):
+            AllFeatures2 = AllFeatures[j+idxs[2]]
+            SSMWs2 = AllSSMWs[i+idxs[2]]
+            #Compare all tempo levels
+            for a in range(len(AllFeatures1)):
+                (Features1, O1) = AllFeatures1[a]
+                SSMWsA = SSMWs1[a]
+                for b in range(len(AllFeatures2)):
+                    (Features2, O2) = AllFeatures2[b]
+                    SSMWsB = SSMWs2[b]
+                    Ws = []
+                    OtherCSMs = {}
+                    #Compute all W matrices
+                    (M, N) = (0, 0)
+                    for F in Features1:
+                        CSMAB = getCSMType(Features1[F], O1, Features2[F], O2, CSMTypes[F])
+                        OtherCSMs[F] = CSMAB
+                        (M, N) = (CSMAB.shape[0], CSMAB.shape[1])
+                        k1 = int(0.5*Kappa*M)
+                        k2 = int(0.5*Kappa*N)
+                        WCSMAB = getWCSM(CSMAB, k1, k2)
+                        WSSMA = SSMWsA[F]
+                        WSSMB = SSMWsB[F]
+                        Ws.append(setupWCSMSSM(WSSMA, WSSMB, WCSMAB))
+                    #Do Similarity Fusion
+                    D = doSimilarityFusionWs(Ws, K, NIters, 1)
+                    #Extract CSM Part
+                    CSM = D[0:M, M::] + D[M::, 0:M].T
+                    DBinary = CSMToBinaryMutual(np.exp(-CSM), Kappa)
+                    score = SAC.swalignimpconstrained(DBinary)
+                    Ds['SNF'][i, j] = max(score, Ds['SNF'][i, j])
+                    #In addition to fusion, compute scores for individual
+                    #features to be used with the fusion later
+                    for Feature in OtherCSMs:
+                        if not Feature in Ds:
+                            Ds[Feature] = np.zeros((thisM, thisN))
+                        DBinary = CSMToBinaryMutual(OtherCSMs[Feature], Kappa)
+                        score = SAC.swalignimpconstrained(DBinary)
+                        Ds[Feature][i, j] = max(Ds[Feature][i, j], score)
     toc = time.time()
     print("Elapsed Time Block: ", toc-tic)
     stdout.flush()
     return Ds
 
-def precomputeFeatures(allFiles, scratchDir, hopSize, lifterexp):
+def precomputeFeatures(allFiles, scratchDir, hopSize, lifterexp, TempoLevels = [60, 120, 180]):
     for i in range(len(allFiles)):
         print("Computing features for file %i of %i..."%(i, len(allFiles)))
         filename = getMatFilename(scratchDir, allFiles[i])
@@ -85,23 +121,37 @@ def precomputeFeatures(allFiles, scratchDir, hopSize, lifterexp):
             print("Skipping...")
             continue
 
-        print("Getting audio...")
-        (XAudio, Fs) = getAudio(allFiles[i])
-        print("Got audio")
-        #(tempo, beats) = getMultiFeatureOnsets(XAudio, Fs, hopSize)
-        (tempo, beats) = getRNNDBNOnsets(allFiles[i], Fs, hopSize)
+        (XAudio, Fs) = getAudioLibrosa(allFiles[i])
+        ret = {'Fs':Fs, 'hopSize':hopSize}
+
+        #Get beats at different tempo levels
+        tempos = []
+        for k in range(len(TempoLevels)):
+            level = TempoLevels[k]
+            (tempo, beats) = getBeats(XAudio, Fs, level, hopSize)
+            novelTempo = True
+            for t in tempos:
+                [smaller, larger] = [min(tempo, t), max(tempo, t)]
+                if float(larger)/smaller < 1.1:
+                    novelTempo = False
+                    break
+            if novelTempo:
+                ret['beats%i'%len(tempos)] = beats
+                ret['tempo%i'%len(tempos)] = tempo
+                tempos.append(tempo)
+        print("%i Unique Tempos"%len(tempos))
+
         winSize = (60.0/tempo)*Fs
         winSize = Fs/2
+        ret['winSize'] = winSize
 
-        print("Getting MFCCs...")
-        XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
-        print("Finished MFCCs")
+        XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
+        ret['XMFCC'] = XMFCC
 
-        print("Getting Chroma...")
         XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
-        print("Finished Chroma")
+        ret['XChroma'] = XChroma
 
-        sio.savemat(filename, {"tempo":tempo, "beats":beats, "winSize":winSize, "Fs":Fs, "XMFCC":XMFCC, "XChroma":XChroma})
+        sio.savemat(filename, ret)
 
 if __name__ == '__main__':
     print argv

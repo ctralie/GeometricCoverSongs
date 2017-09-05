@@ -24,6 +24,12 @@ def getAudio(filename):
         XAudio = np.mean(XAudio, 1)
     return (XAudio, Fs)
 
+def getAudioLibrosa(filename):
+    import librosa
+    XAudio, Fs = librosa.load(filename)
+    XAudio = librosa.core.to_mono(XAudio)
+    return (XAudio, Fs)
+
 def getBeats(XAudio, Fs, TempoBias, hopSize):
     if TempoBias == -1:
         return getDegaraOnsets(XAudio, Fs, hopSize)

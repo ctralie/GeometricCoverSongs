@@ -32,20 +32,7 @@ def getW(D, K, Mu = 0.5):
     W = np.exp(-DSym**2/(2*(Mu*Eps)**2))
     return W
 
-#Cross-Affinity Matrix.  Do a special weighting of nearest neighbors
-#so that there are a proportional number of similarity neighbors
-#and cross neighbors
-def getWCSMSSM(SSMA, SSMB, CSMAB, K, Mu = 0.5):
-    N = SSMA.shape[0]
-    M = SSMB.shape[0]
-    #Split the neighbors evenly between the CSM
-    #and SSM parts of each row
-    k1 = int(K*float(N)/(M+N))
-    k2 = K - k1
-
-    WSSMA = getW(SSMA, k1, Mu)
-    WSSMB = getW(SSMB, k2, Mu)
-
+def getWCSM(CSMAB, k1, k2, Mu = 0.5):
     Neighbs1 = np.partition(CSMAB, k2, 1)[:, 0:k2]
     MeanDist1 = np.mean(Neighbs1, 1)
 
@@ -53,16 +40,36 @@ def getWCSMSSM(SSMA, SSMB, CSMAB, K, Mu = 0.5):
     MeanDist2 = np.mean(Neighbs2, 0)
     Eps = MeanDist1[:, None] + MeanDist2[None, :] + CSMAB
     Eps /= 3
-    WCSMAB = np.exp(-CSMAB**2/(2*(Mu*Eps)**2))
+    return np.exp(-CSMAB**2/(2*(Mu*Eps)**2))
 
-
+def setupWCSMSSM(WSSMA, WSSMB, WCSMAB):
     #Setup matrix  [ SSMA  CSMAB ]
     #              [ CSMBA SSMB ]
+    M = SSMA.shape[0]
+    N = SSMB.shape[0]
     W = np.zeros((N+M, N+M))
-    W[0:N, 0:N] = WSSMA
-    W[0:N, N::] = WCSMAB
-    W[N::, 0:N] = WCSMAB.T
-    W[N::, N::] = WSSMB
+    W[0:M, 0:M] = WSSMA
+    W[0:M, M::] = WCSMAB
+    W[M::, 0:M] = WCSMAB.T
+    W[M::, M::] = WSSMB
+    return W
+
+#Cross-Affinity Matrix.  Do a special weighting of nearest neighbors
+#so that there are a proportional number of similarity neighbors
+#and cross neighbors
+def getWCSMSSM(SSMA, SSMB, CSMAB, K, Mu = 0.5):
+    M = SSMA.shape[0]
+    N = SSMB.shape[0]
+    #Split the neighbors evenly between the CSM
+    #and SSM parts of each row
+    k1 = int(K*float(M)/(M+N))
+    k2 = K - k1
+
+    WSSMA = getW(SSMA, k1, Mu)
+    WSSMB = getW(SSMB, k2, Mu)
+    WCSMAB = getWCSM(CSMAB, k1, k2, Mu)
+
+
     return W
 
 #Probability matrix
