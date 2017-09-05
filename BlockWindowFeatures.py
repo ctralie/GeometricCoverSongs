@@ -15,7 +15,7 @@ import subprocess
 
 #Need to specify hopSize as as parameter so that beat onsets
 #Align with MFCC and chroma windows
-def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.array([])):
+def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.array([]), do32Bit = True):
     #Unpack parameters
     (XAudio, Fs, tempo, beats, hopSize, FeatureParams) = args
     NBeats = len(beats)-1
@@ -270,7 +270,9 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
             plt.subplot(212)
             plt.imshow(xf.T, cmap = 'afmhot', aspect = 'auto', interpolation = 'none')
             plt.savefig("2DFTM%i.png"%i, bbox_inches = 'tight')
-
+    if do32Bit:
+        for F in BlockFeatures:
+            BlockFeatures[F] = np.array(BlockFeatures[F], dtype = np.float32)
     return (BlockFeatures, OtherFeatures)
 
 def plotSongLabels(song1, song2, dim1 = 1, dim2 = 3):

@@ -40,15 +40,22 @@ def compareBlock(args):
     allidxs += [j + idxs[2] for j in range(thisN)]
     allidxs = np.unique(np.array(allidxs))
     #Compute features and precompute Ws for SSM parts
+    ticfeatures = time.time()
+    count = 1
     for idx in allidxs:
+        print("Features %i of %i"%(count, len(allidxs)))
+        stdout.flush()
+        count += 1
         filename = getMatFilename(scratchDir, allFiles[idx])
         X = sio.loadmat(filename)
         thisFeats = [] #Holds features at all tempo levels
         thisWs = [] #Holds the SSM Ws at all tempo levels
         k = 0
         while 'beats%i'%k in X:
+            start = time.time()
             (Feats, O) = getBlockWindowFeatures((None, X['Fs'], X['tempo%i'%k], X['beats%i'%k].flatten(), hopSize, FeatureParams), X['XMFCC'], X['XChroma'])
             thisFeats.append((Feats, O))
+            start = time.time()
             #Precompute the W for the SSM part for similarity network fusion
             Ws = {}
             for F in Feats:
@@ -56,9 +63,13 @@ def compareBlock(args):
                 K = int(0.5*Kappa*SSM.shape[0])
                 Ws[F] = getW(SSM, K)
             thisWs.append(Ws)
+            print "Elapsed Time Ws: ", time.time() - start
             k += 1
         AllFeatures[idx] = thisFeats
         AllSSMWs[idx] = thisWs
+    tocfeatures = time.time()
+    print("Elapsed Time Features: ", tocfeatures-ticfeatures)
+    stdout.flush()
 
     K = 20
     NIters = 3
@@ -70,7 +81,7 @@ def compareBlock(args):
         SSMWs1 = AllSSMWs[i+idxs[0]]
         for j in range(thisN):
             AllFeatures2 = AllFeatures[j+idxs[2]]
-            SSMWs2 = AllSSMWs[i+idxs[2]]
+            SSMWs2 = AllSSMWs[j+idxs[2]]
             #Compare all tempo levels
             for a in range(len(AllFeatures1)):
                 (Features1, O1) = AllFeatures1[a]
@@ -146,10 +157,10 @@ def precomputeFeatures(allFiles, scratchDir, hopSize, lifterexp, TempoLevels = [
         ret['winSize'] = winSize
 
         XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
-        ret['XMFCC'] = XMFCC
+        ret['XMFCC'] = np.array(XMFCC, dtype = np.float32)
 
         XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
-        ret['XChroma'] = XChroma
+        ret['XChroma'] = np.array(XChroma, dtype = np.float32)
 
         sio.savemat(filename, ret)
 
@@ -207,7 +218,7 @@ if __name__ == '__main__':
 
     #Process blocks of similarity at a time
     N = len(allFiles)
-    NPerBlock = 20
+    NPerBlock = 2
     NBlocks = int(np.ceil(N/float(NPerBlock)))
     ranges = []
     for i in range(NBlocks):
@@ -218,11 +229,11 @@ if __name__ == '__main__':
             j2 = min(j1+NPerBlock, N)
             ranges.append([i1, i2, j1, j2])
     args = zip(ranges, [hopSize]*len(ranges), [Kappa]*len(ranges), [FeatureParams]*len(ranges), [CSMTypes]*len(ranges), [allFiles]*len(ranges), [scratchDir]*len(ranges))
-    res = parpool.map(compareBlock, args)
-    """
+    #res = parpool.map(compareBlock, args)
+    #"""
     for i in range(len(ranges)):
         compareBlock((ranges[i], hopSize, Kappa, FeatureParams, CSMTypes, allFiles, scratchDir))
-    """
+    #"""
 
     #Assemble all blocks together
     Ds = {}

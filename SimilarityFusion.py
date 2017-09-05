@@ -45,8 +45,8 @@ def getWCSM(CSMAB, k1, k2, Mu = 0.5):
 def setupWCSMSSM(WSSMA, WSSMB, WCSMAB):
     #Setup matrix  [ SSMA  CSMAB ]
     #              [ CSMBA SSMB ]
-    M = SSMA.shape[0]
-    N = SSMB.shape[0]
+    M = WSSMA.shape[0]
+    N = WSSMB.shape[0]
     W = np.zeros((N+M, N+M))
     W[0:M, 0:M] = WSSMA
     W[0:M, M::] = WCSMAB
