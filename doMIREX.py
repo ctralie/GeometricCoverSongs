@@ -1,6 +1,7 @@
 """
 Programmer: Chris Tralie
-Purpose: To provide an interface for MIREX 2017
+Purpose: To provide an interface for the MIREX 2017
+cover songs competition
 """
 
 import numpy as np
@@ -9,6 +10,7 @@ import os
 from BlockWindowFeatures import *
 from MusicFeatures import *
 from EvalStatistics import *
+import SequenceAlignment._SequenceAlignment as SAC
 from multiprocessing import Pool as PPool
 from sys import exit, argv, stdout
 import time
@@ -19,6 +21,12 @@ def getMatFilename(scratchDir, filename):
     return "%s/%s.mat"%(scratchDir, prefix)
 
 def compareBlock(args):
+    """
+    Process a rectangular block of the all pairs score matrix
+    between all of the songs.  Return score matrices for each
+    individual type of feature, in addition to one for early
+    similarity network fusion
+    """
     (idxs, hopSize, Kappa, FeatureParams, CSMTypes, allFiles, scratchDir) = args
     #Figure out block size thisM x thisN
     thisM = idxs[1] - idxs[0]
@@ -46,6 +54,7 @@ def compareBlock(args):
 
     K = 20
     NIters = 3
+    Ds = {'SNF':np.zeros((thisM, thisN))}
     for i in range(len(Features1)):
         print("i = %i"%i)
         stdout.flush()
@@ -53,12 +62,46 @@ def compareBlock(args):
         for j in range(len(Features2)):
             (AllFeatures2, O2) = Features2[j]
             res = getCSMSmithWatermanScoresEarlyFusionFull([AllFeatures1, O1, AllFeatures2, O2, Kappa, K, NIters, CSMTypes])
-            D[i, j] = res['score']
+            Ds['SNF'][i, j] = res['score']
+            #In addition to fusion, compute scores for individual
+            #features to be used with the fusion later
+            for Feature in res['OtherCSMs']:
+                if not Feature in Ds:
+                    Ds[Feature] = np.zeros((thisM, thisN))
+                DBinary = CSMToBinaryMutual(res['OtherCSMs'][Feature], Kappa)
+                Ds[Feature][i, j] = SAC.swalignimpconstrained(DBinary)
+
     toc = time.time()
     print("Elapsed Time Block: ", toc-tic)
     stdout.flush()
-    return D
+    return Ds
 
+def precomputeFeatures(allFiles, scratchDir, hopSize, lifterexp):
+    for i in range(len(allFiles)):
+        print("Computing features for file %i of %i..."%(i, len(allFiles)))
+        filename = getMatFilename(scratchDir, allFiles[i])
+
+        if os.path.exists(filename):
+            print("Skipping...")
+            continue
+
+        print("Getting audio...")
+        (XAudio, Fs) = getAudio(allFiles[i])
+        print("Got audio")
+        #(tempo, beats) = getMultiFeatureOnsets(XAudio, Fs, hopSize)
+        (tempo, beats) = getRNNDBNOnsets(allFiles[i], Fs, hopSize)
+        winSize = (60.0/tempo)*Fs
+        winSize = Fs/2
+
+        print("Getting MFCCs...")
+        XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
+        print("Finished MFCCs")
+
+        print("Getting Chroma...")
+        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
+        print("Finished Chroma")
+
+        sio.savemat(filename, {"tempo":tempo, "beats":beats, "winSize":winSize, "Fs":Fs, "XMFCC":XMFCC, "XChroma":XChroma})
 
 if __name__ == '__main__':
     print argv
@@ -104,30 +147,7 @@ if __name__ == '__main__':
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
 
     #Step 1: Precompute beat intervals, MFCC, and HPCP Features for each song
-    for i in range(len(allFiles)):
-        print("Computing features for file %i of %i..."%(i, len(allFiles)))
-        filename = getMatFilename(scratchDir, allFiles[i])
-
-        if os.path.exists(filename):
-            print("Skipping...")
-            continue
-
-        print("Getting audio...")
-        (XAudio, Fs) = getAudio(allFiles[i])
-        print("Got audio")
-        (tempo, beats) = getDegaraOnsets(XAudio, Fs, hopSize)
-        winSize = (60.0/tempo)*Fs
-        winSize = Fs/2
-
-        print("Getting MFCCs...")
-        XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
-        print("Finished MFCCs")
-
-        print("Getting Chroma...")
-        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
-        print("Finished Chroma")
-
-        sio.savemat(filename, {"tempo":tempo, "beats":beats, "winSize":winSize, "Fs":Fs, "XMFCC":XMFCC, "XChroma":XChroma})
+    precomputeFeatures(allFiles, scratchDir, hopSize, lifterexp)
 
     #Setup parallel pool
     NThreads = 8
@@ -141,10 +161,12 @@ if __name__ == '__main__':
     NBlocks = int(np.ceil(N/float(NPerBlock)))
     ranges = []
     for i in range(NBlocks):
+        i1 = i*NPerBlock
         for j in range(NBlocks):
-            i2 = min(i+NPerBlock, N)
-            j2 = min(j+NPerBlock, N)
-            ranges.append([i, i2, j, j2])
+            j1 = j*NPerBlock
+            i2 = min(i1+NPerBlock, N)
+            j2 = min(j1+NPerBlock, N)
+            ranges.append([i1, i2, j1, j2])
     args = zip(ranges, [hopSize]*len(ranges), [Kappa]*len(ranges), [FeatureParams]*len(ranges), [CSMTypes]*len(ranges), [allFiles]*len(ranges), [scratchDir]*len(ranges))
     res = parpool.map(compareBlock, args)
     """
@@ -153,9 +175,14 @@ if __name__ == '__main__':
     """
 
     #Assemble all blocks together
-    D = np.zeros((N, N))
+    Ds = {}
     for i in range(len(ranges)):
         [i1, i2, j1, j2] = ranges[i]
-        D[i1:i2, j1:j2] = res[i]
+        for Feature in res[i]:
+            if not Feature in Ds:
+                Ds[Feature] = np.zeros((N, N))
+            Ds[Feature][i1:i2, j1:j2] = res[i][Feature]
 
-    sio.savemat("D.mat", {"D":D})
+    #Save distance matrix in case there's a problem
+    #with the text output
+    sio.savemat("%s/D.mat"%scratchDir, Ds)

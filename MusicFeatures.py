@@ -5,6 +5,7 @@ import scipy.misc
 import subprocess
 from scipy.io import wavfile
 from scipy.signal import spectrogram
+from scipy.interpolate import interp1d
 from CSMSSMTools import *
 import os
 TEMP_FILENAME = 'temp.wav'
@@ -34,8 +35,10 @@ def getBeats(XAudio, Fs, TempoBias, hopSize):
         (tempo, beats) = getDegaraOnsets(XAudio, Fs, hopSize)
     return (tempo, beats)
 
-#Call Essentia's implementation of Degara's technique
 def getDegaraOnsets(XAudio, Fs, hopSize):
+    """
+    Call Essentia's implementation of Degara's technique
+    """
     from essentia import Pool, array
     import essentia.standard as ess
     X = array(XAudio)
@@ -43,6 +46,34 @@ def getDegaraOnsets(XAudio, Fs, hopSize):
     beats = b(X)
     tempo = 60/np.mean(beats[1::] - beats[0:-1])
     beats = np.array(np.round(beats*Fs/hopSize), dtype=np.int64)
+    return (tempo, beats)
+
+def getMultiFeatureOnsets(XAudio, Fs, hopSize):
+    """
+    Call Essentia's implemtation of multi feature
+    beat tracking
+    """
+    from essentia import Pool, array
+    import essentia.standard as ess
+    X = array(XAudio)
+    b = ess.BeatTrackerMultiFeature()
+    beats = b(X)
+    print("Beat confidence: ", beats[1])
+    beats = beats[0]
+    tempo = 60/np.mean(beats[1::] - beats[0:-1])
+    beats = np.array(np.round(beats*Fs/hopSize), dtype=np.int64)
+    return (tempo, beats)
+
+def getRNNDBNOnsets(filename, Fs, hopSize):
+    """
+    Call Madmom's implementation of RNN + DBN beat tracking
+    """
+    from madmom.features.beats import RNNBeatProcessor, DBNBeatTrackingProcessor
+    proc = DBNBeatTrackingProcessor(fps=100)
+    act = RNNBeatProcessor()(filename)
+    b = proc(act)
+    tempo = 60/np.mean(b[1::] - b[0:-1])
+    beats = np.array(np.round(b*Fs/hopSize), dtype=np.int64)
     return (tempo, beats)
 
 def getMelFilterbank(Fs, winSize, NSpectrumSamples, NBands = 40, fmin = 0.0, fmax = 8000):

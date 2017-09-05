@@ -277,6 +277,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative 
     CSMs = [] #Individual CSMs
     Ws = [] #W built from fused CSMs/SSMs
     Features = AllFeatures1.keys()
+    OtherCSMs = {}
     #Compute all CSMs and SSMs
     for i in range(len(Features)):
         F = Features[i]
@@ -284,6 +285,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative 
         SSMB = getCSMType(AllFeatures2[F], O2, AllFeatures2[F], O2, CSMTypes[F])
         CSMAB = getCSMType(AllFeatures1[F], O1, AllFeatures2[F], O2, CSMTypes[F])
         CSMs.append(CSMAB)
+        OtherCSMs[F] = CSMAB
         #Build W from CSM and SSMs
         Ws.append(getWCSMSSM(SSMA, SSMB, CSMAB, K))
     tic = time.time()
@@ -296,7 +298,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative 
     #Note that the CSM is in probabalistic weight form, so the
     #"nearest neighbors" are actually those with highest weight.  So
     #apply monotonic exp(-CSM) to fix this
-    
+
     if conservative:
         x = CSM.flatten()
         x = x[np.argsort(-x)]
@@ -333,7 +335,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative 
         plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
         plt.title("Fused Score = %g"%maxD)
         return {'score':maxD, 'CSM':CSM, 'DBinary':DBinary, 'D':D, 'maxD':maxD, 'path':path}
-    return {'score':SAC.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary}
+    return {'score':SAC.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary, 'OtherCSMs':OtherCSMs}
 
 def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
     return getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot)['score']
