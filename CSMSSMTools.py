@@ -101,7 +101,6 @@ def getCSMCosineOTI(X, Y, C1, C2):
     NChromaBins = len(C1)
     ChromasPerBlock = X.shape[1]/NChromaBins
     oti = getOTI(C1, C2)
-    #print "oti = ", oti
     X1 = np.reshape(X, (X.shape[0], ChromasPerBlock, NChromaBins))
     X1 = np.roll(X1, oti, axis=2)
     X1 = np.reshape(X1, [X.shape[0], ChromasPerBlock*NChromaBins])

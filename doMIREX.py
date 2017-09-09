@@ -28,80 +28,63 @@ def compareBlock(args):
     similarity network fusion
     """
     (idxs, hopSize, Kappa, FeatureParams, CSMTypes, allFiles, scratchDir) = args
+    DsFilename = "%s/D%i_%i_%i_%i.mat"%(scratchDir, idxs[0], idxs[1], idxs[2], idxs[3])
+    if os.path.exists(DsFilename):
+        return sio.loadmat(DsFilename)
     #Figure out block size thisM x thisN
     thisM = idxs[1] - idxs[0]
     thisN = idxs[3] - idxs[2]
     D = np.zeros((thisM, thisN))
 
     AllFeatures = {}
-    AllSSMWs = {}
     tic = time.time()
     allidxs = [i + idxs[0] for i in range(thisM)]
     allidxs += [j + idxs[2] for j in range(thisN)]
     allidxs = np.unique(np.array(allidxs))
-    #Compute features and precompute Ws for SSM parts
+    #Preload features and Ws for SSM parts
     ticfeatures = time.time()
     count = 1
     for idx in allidxs:
-        print("Features %i of %i"%(count, len(allidxs)))
-        stdout.flush()
-        count += 1
         filename = getMatFilename(scratchDir, allFiles[idx])
-        X = sio.loadmat(filename)
-        thisFeats = [] #Holds features at all tempo levels
-        thisWs = [] #Holds the SSM Ws at all tempo levels
-        k = 0
-        while 'beats%i'%k in X:
-            start = time.time()
-            (Feats, O) = getBlockWindowFeatures((None, X['Fs'], X['tempo%i'%k], X['beats%i'%k].flatten(), hopSize, FeatureParams), X['XMFCC'], X['XChroma'])
-            thisFeats.append((Feats, O))
-            start = time.time()
-            #Precompute the W for the SSM part for similarity network fusion
-            Ws = {}
-            for F in Feats:
-                SSM = getCSMType(Feats[F], O, Feats[F], O, CSMTypes[F])
-                K = int(0.5*Kappa*SSM.shape[0])
-                Ws[F] = getW(SSM, K)
-            thisWs.append(Ws)
-            print "Elapsed Time Ws: ", time.time() - start
-            k += 1
-        AllFeatures[idx] = thisFeats
-        AllSSMWs[idx] = thisWs
+        AllFeatures[idx] = sio.loadmat(filename)
     tocfeatures = time.time()
-    print("Elapsed Time Features: ", tocfeatures-ticfeatures)
+    print("Elapsed Time Loading Features: ", tocfeatures-ticfeatures)
     stdout.flush()
 
     K = 20
     NIters = 3
     Ds = {'SNF':np.zeros((thisM, thisN))}
+    for Feature in CSMTypes.keys():
+        Ds[Feature] = np.zeros((thisM, thisN))
     for i in range(thisM):
         print("i = %i"%i)
         stdout.flush()
-        AllFeatures1 = AllFeatures[i+idxs[0]]
-        SSMWs1 = AllSSMWs[i+idxs[0]]
+        thisi = i + idxs[0]
+        Features1 = AllFeatures[thisi]
         for j in range(thisN):
-            AllFeatures2 = AllFeatures[j+idxs[2]]
-            SSMWs2 = AllSSMWs[j+idxs[2]]
+            thisj = j + idxs[2]
+            if thisj < thisi:
+                #Only compute upper triangular part since it's symmetric
+                continue
+            Features2 = AllFeatures[thisj]
             #Compare all tempo levels
-            for a in range(len(AllFeatures1)):
-                (Features1, O1) = AllFeatures1[a]
-                SSMWsA = SSMWs1[a]
-                for b in range(len(AllFeatures2)):
-                    (Features2, O2) = AllFeatures2[b]
-                    SSMWsB = SSMWs2[b]
+            for a in range(Features1['NTempos']):
+                O1 = {'ChromaMean':Features1['ChromaMean%i'%a].flatten()}
+                for b in range(Features2['NTempos']):
+                    O2 = {'ChromaMean':Features2['ChromaMean%i'%b].flatten()}
                     Ws = []
                     OtherCSMs = {}
                     #Compute all W matrices
                     (M, N) = (0, 0)
-                    for F in Features1:
-                        CSMAB = getCSMType(Features1[F], O1, Features2[F], O2, CSMTypes[F])
+                    for F in CSMTypes.keys():
+                        CSMAB = getCSMType(Features1['%s%i'%(F, a)], O1, Features2['%s%i'%(F, b)], O2, CSMTypes[F])
                         OtherCSMs[F] = CSMAB
                         (M, N) = (CSMAB.shape[0], CSMAB.shape[1])
                         k1 = int(0.5*Kappa*M)
                         k2 = int(0.5*Kappa*N)
                         WCSMAB = getWCSM(CSMAB, k1, k2)
-                        WSSMA = SSMWsA[F]
-                        WSSMB = SSMWsB[F]
+                        WSSMA = Features1['W%s%i'%(F, a)]
+                        WSSMB = Features2['W%s%i'%(F, b)]
                         Ws.append(setupWCSMSSM(WSSMA, WSSMB, WCSMAB))
                     #Do Similarity Fusion
                     D = doSimilarityFusionWs(Ws, K, NIters, 1)
@@ -113,56 +96,68 @@ def compareBlock(args):
                     #In addition to fusion, compute scores for individual
                     #features to be used with the fusion later
                     for Feature in OtherCSMs:
-                        if not Feature in Ds:
-                            Ds[Feature] = np.zeros((thisM, thisN))
                         DBinary = CSMToBinaryMutual(OtherCSMs[Feature], Kappa)
                         score = SAC.swalignimpconstrained(DBinary)
                         Ds[Feature][i, j] = max(Ds[Feature][i, j], score)
     toc = time.time()
     print("Elapsed Time Block: ", toc-tic)
     stdout.flush()
+    sio.savemat(DsFilename, Ds)
     return Ds
 
-def precomputeFeatures(allFiles, scratchDir, hopSize, lifterexp, TempoLevels = [60, 120, 180]):
-    for i in range(len(allFiles)):
-        print("Computing features for file %i of %i..."%(i, len(allFiles)))
-        filename = getMatFilename(scratchDir, allFiles[i])
+def precomputeFeatures(args):
+    (audiofilename, scratchDir, hopSize, lifterexp, Kappa, FeatureParams, TempoLevels) = args
+    tic = time.time()
+    print("Computing features for %s..."%audiofilename)
+    filename = getMatFilename(scratchDir, audiofilename)
 
-        if os.path.exists(filename):
-            print("Skipping...")
-            continue
+    if os.path.exists(filename):
+        print("Skipping...")
+        return
 
-        (XAudio, Fs) = getAudioLibrosa(allFiles[i])
-        ret = {'Fs':Fs, 'hopSize':hopSize}
+    (XAudio, Fs) = getAudioScipy(audiofilename)
+    winSize = Fs/2
+    XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
 
-        #Get beats at different tempo levels
-        tempos = []
-        for k in range(len(TempoLevels)):
-            level = TempoLevels[k]
+    XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
+
+    #Computed blocked features at different tempo levels
+    tempos = []
+    ret = {'hopSize':hopSize, 'winSize':winSize, 'lifterexp':lifterexp}
+    for level in TempoLevels:
+        if level == 0:
+            #Use madmom
+            (tempo, beats) = getRNNDBNOnsets(audiofilename, Fs, hopSize)
+        else:
+            #Use dynamic programming beat tracker biased with a level
             (tempo, beats) = getBeats(XAudio, Fs, level, hopSize)
-            novelTempo = True
-            for t in tempos:
-                [smaller, larger] = [min(tempo, t), max(tempo, t)]
-                if float(larger)/smaller < 1.1:
-                    novelTempo = False
-                    break
-            if novelTempo:
-                ret['beats%i'%len(tempos)] = beats
-                ret['tempo%i'%len(tempos)] = tempo
-                tempos.append(tempo)
-        print("%i Unique Tempos"%len(tempos))
+        novelTempo = True
+        for t in tempos:
+            [smaller, larger] = [min(tempo, t), max(tempo, t)]
+            if float(larger)/smaller < 1.1:
+                novelTempo = False
+                break
+        if not novelTempo:
+            continue
+        tidx = len(tempos)
+        ret['beats%i'%tidx] = beats
+        ret['tempo%i'%tidx] = tempo
+        tempos.append(tempo)
 
-        winSize = (60.0/tempo)*Fs
-        winSize = Fs/2
-        ret['winSize'] = winSize
+        (Feats, O) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams), XMFCC, XChroma)
+        ret['ChromaMean%i'%tidx] = O['ChromaMean']
 
-        XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
-        ret['XMFCC'] = np.array(XMFCC, dtype = np.float32)
+        #Precompute the W for the SSM part for similarity network fusion
+        for F in Feats:
+            ret['%s%i'%(F, tidx)] = Feats[F]
+            SSM = getCSMType(Feats[F], O, Feats[F], O, CSMTypes[F])
+            K = int(0.5*Kappa*SSM.shape[0])
+            ret['W%s%i'%(F, tidx)] = getW(SSM, K)
 
-        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
-        ret['XChroma'] = np.array(XChroma, dtype = np.float32)
-
-        sio.savemat(filename, ret)
+    ret['NTempos'] = len(tempos)
+    print("%i Unique Tempos"%len(tempos))
+    print("Elapsed Time: ", time.time() - tic)
+    sio.savemat(filename, ret)
 
 if __name__ == '__main__':
     print argv
@@ -201,14 +196,12 @@ if __name__ == '__main__':
     hopSize = 512
     Kappa = 0.1
     NMFCC = 20
-    NChromaBins = 12
     lifterexp = 0.6
+    #TempoLevels = [60, 120, 180]
+    TempoLevels = [0]
     FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50, 'MFCCSamplesPerBlock':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
 
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
-
-    #Step 1: Precompute beat intervals, MFCC, and HPCP Features for each song
-    precomputeFeatures(allFiles, scratchDir, hopSize, lifterexp)
 
     #Setup parallel pool
     NThreads = 8
@@ -216,9 +209,18 @@ if __name__ == '__main__':
         NThreads = int(argv[5])
     parpool = PPool(NThreads)
 
+    #Step 1: Precompute beat intervals, MFCC, and HPCP Features for each song
+    NF = len(allFiles)
+    args = zip(allFiles, [scratchDir]*NF, [hopSize]*NF, [lifterexp]*NF, [Kappa]*NF, [FeatureParams]*NF, [TempoLevels]*NF)
+    """
+    for i in range(NF):
+        precomputeFeatures((allFiles[i], scratchDir, hopSize, lifterexp, Kappa, FeatureParams, TempoLevels))
+    """
+    parpool.map(precomputeFeatures, args)
+
     #Process blocks of similarity at a time
     N = len(allFiles)
-    NPerBlock = 2
+    NPerBlock = 20
     NBlocks = int(np.ceil(N/float(NPerBlock)))
     ranges = []
     for i in range(NBlocks):
@@ -229,21 +231,28 @@ if __name__ == '__main__':
             j2 = min(j1+NPerBlock, N)
             ranges.append([i1, i2, j1, j2])
     args = zip(ranges, [hopSize]*len(ranges), [Kappa]*len(ranges), [FeatureParams]*len(ranges), [CSMTypes]*len(ranges), [allFiles]*len(ranges), [scratchDir]*len(ranges))
-    #res = parpool.map(compareBlock, args)
-    #"""
+    res = parpool.map(compareBlock, args)
+    """
     for i in range(len(ranges)):
         compareBlock((ranges[i], hopSize, Kappa, FeatureParams, CSMTypes, allFiles, scratchDir))
-    #"""
+    """
 
     #Assemble all blocks together
     Ds = {}
     for i in range(len(ranges)):
         [i1, i2, j1, j2] = ranges[i]
-        for Feature in res[i]:
+        for Feature in CSMTypes.keys() + ['SNF']:
             if not Feature in Ds:
                 Ds[Feature] = np.zeros((N, N))
             Ds[Feature][i1:i2, j1:j2] = res[i][Feature]
 
-    #Save distance matrix in case there's a problem
+    #Fill in lower triangular part
+    for Feature in Ds.keys():
+        Ds[Feature] = Ds[Feature] + Ds[Feature].T
+        np.fill_diagonal(Ds[Feature], 0.5*np.diagonal(Ds[Feature], 0))
+        plt.imshow(Ds[Feature], cmap = 'afmhot', interpolation = 'none')
+        plt.show()
+
+    #Save full distance matrix in case there's a problem
     #with the text output
     sio.savemat("%s/D.mat"%scratchDir, Ds)

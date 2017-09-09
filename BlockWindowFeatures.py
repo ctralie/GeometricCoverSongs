@@ -242,6 +242,7 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
     if usingChroma:
         BlockFeatures['Chromas'] = np.zeros((NChromaBlocks, ChromasPerBlock*NChromaBins))
         if FTM2D:
+            print ""
             BlockFeatures['ChromasFTM2D'] = np.zeros((NChromaBlocks, ChromasPerBlock*NChromaBins))
         if XChromaParam.size == 0:
             from MusicFeatures import getHPCPEssentia

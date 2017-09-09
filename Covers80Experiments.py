@@ -10,6 +10,11 @@ from EvalStatistics import *
 ## Code for running the experiments
 #############################################################################
 
+def getMatFilename(scratchDir, filename):
+    prefix = filename.split("/")[-1]
+    prefix = prefix[0:-4]
+    return "%s/%s.mat"%(scratchDir, prefix)
+
 #Returns a dictionary of the form {'FeatureName':[Array of Features at tempo level 1, Array of Features at tempo level 2, ...., Array of Features at tempo level N]}
 def getCovers80FeaturesDict(FeatureParams, hopSize, TempoBiases):
     fin = open('covers32k/list1.list', 'r')
@@ -18,7 +23,7 @@ def getCovers80FeaturesDict(FeatureParams, hopSize, TempoBiases):
     fin = open('covers32k/list2.list', 'r')
     files2 = ["covers32k/" + f.strip() + ".ogg" for f in fin.readlines()]
     fin.close()
-    files = files1 + files2
+    files = files1[0:20]# + files2
 
     #Set up the parallel pool
     #parpool = Pool(processes = 8)
@@ -28,19 +33,28 @@ def getCovers80FeaturesDict(FeatureParams, hopSize, TempoBiases):
     for k in range(len(TempoBiases)):
         OtherFeatures.append([])
     for filename in files:
+        matfile = getMatFilename("ScratchCovers80", filename)
+        ret = {}
         (XAudio, Fs) = getAudio(filename)
         print "Getting features for %s..."%filename
         for k in range(len(TempoBiases)):
             (tempo, beats) = getBeats(XAudio, Fs, TempoBiases[k], hopSize)
+
+            ret['beats%i'%k] = beats
+            ret['tempo%i'%k] = tempo
+
             #(XAudio, Fs, hopSize, beats, tempo, BeatsPerBlock, FeatureParams)
             (Features, Other) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
+            ret['ChromaMean%i'%k] = Other['ChromaMean']
             for FeatureName in Features:
                 if not FeatureName in AllFeatures:
                     AllFeatures[FeatureName] = []
                     for a in range(len(TempoBiases)):
                         AllFeatures[FeatureName].append([])
                 AllFeatures[FeatureName][k].append(Features[FeatureName])
+                ret['%s%i'%(FeatureName, k)] = AllFeatures[FeatureName][k]
             OtherFeatures[k].append(Other)
+        sio.savemat(matfile, ret)
     return (AllFeatures, OtherFeatures, files)
 
 def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, filePrefix, fout):
@@ -70,8 +84,9 @@ def doCovers80Experiments(FeatureParams, hopSize, TempoBiases, Kappa, CSMTypes, 
         Results[FeatureName] = Scores
         Results["%sTempos"%FeatureName] = BestTempos
         print("\n\nScores %s, %s"%(filePrefix, FeatureName))
-        getCovers80EvalStatistics(Scores, N, NSongs, [1, 25, 50, 100], fout, "%s_%s"%(filePrefix, FeatureName))
         sio.savemat("%s.mat"%filePrefix, Results)
+        getCovers80EvalStatistics(Scores, N, NSongs, [1, 25, 50, 100], fout, "%s_%s"%(filePrefix, FeatureName))
+
 
         #Output the cross-similarity matrices for this feature
         for i in range(0):#NSongs):
@@ -184,8 +199,8 @@ if __name__ == '__main__':
     CurvSigmas = [10, 60]
     #FeatureParams = {'MFCCBeatsPerBlock':20, 'NJump':400, 'CurvSigmas':CurvSigmas}
     #FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'DPixels':50, 'MFCCSamplesPerBlock':50}
-    FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'DPixels':50}
-    #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
+    #FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'DPixels':50}
+    FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
 
     #What types of cross-similarity should be used to compare different blocks for different feature types
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI', 'ChromasFTM2D':'Euclidean'}

@@ -8,23 +8,26 @@ from scipy.signal import spectrogram
 from scipy.interpolate import interp1d
 from CSMSSMTools import *
 import os
-TEMP_FILENAME = 'temp.wav'
 
-def getAudio(filename):
+def getAudioScipy(filename):
     toload = filename
+    tempfilename = ""
     if not filename[-3::] == 'wav':
-        if os.path.exists(TEMP_FILENAME):
-            os.remove(TEMP_FILENAME)
-        subprocess.call(["avconv", "-i", filename, TEMP_FILENAME])
-        toload = TEMP_FILENAME
+        tempfilename = "%s.wav"%filename[0:-4]
+        if os.path.exists(tempfilename):
+            os.remove(tempfilename)
+        subprocess.call(["avconv", "-i", filename, tempfilename])
+        toload = tempfilename
     Fs, XAudio = wavfile.read(toload)
     #Convert shorts to floats
     XAudio = np.array(XAudio, dtype = np.float32) / (2.0**16)
     if len(XAudio.shape) > 1:
         XAudio = np.mean(XAudio, 1)
+    if len(tempfilename) > 0:
+        os.remove(tempfilename)
     return (XAudio, Fs)
 
-def getAudioLibrosa(filename):
+def getAudio(filename):
     import librosa
     XAudio, Fs = librosa.load(filename)
     XAudio = librosa.core.to_mono(XAudio)
@@ -163,6 +166,7 @@ def getHPCPEssentia(XAudio, Fs, winSize, hopSize, squareRoot = False, NChromaBin
     import essentia
     from essentia import Pool, array
     import essentia.standard as ess
+    print("Getting HPCP Essentia")
     spectrum = ess.Spectrum()
     window = ess.Windowing(size=winSize, type='hann')
     spectralPeaks = ess.SpectralPeaks()

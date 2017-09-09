@@ -68,9 +68,7 @@ def getWCSMSSM(SSMA, SSMB, CSMAB, K, Mu = 0.5):
     WSSMA = getW(SSMA, k1, Mu)
     WSSMB = getW(SSMB, k2, Mu)
     WCSMAB = getWCSM(CSMAB, k1, k2, Mu)
-
-
-    return W
+    return setupWCSMSSM(WSSMA, WSSMB, WCSMAB)
 
 #Probability matrix
 def getP(W, diagRegularize = False):
