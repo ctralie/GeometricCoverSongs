@@ -1,3 +1,9 @@
+"""
+Programmer: Chris Tralie
+Purpose: A variety of tools for computing self-similarity matrices (SSMs)
+and cross-similarity matrices (CSMs), with a particular
+emphasis on speeding up Euclidean SSMs/CSMs.
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 import SequenceAlignment.SequenceAlignment as SA
@@ -61,6 +67,14 @@ def getCSM(X, Y):
     return np.sqrt(C)
 
 def getCSMEMD1D(X, Y):
+    """
+    Compute an approximate of the earth mover's distance
+    between the M points in the Mxd matrix X and the N points
+    in the Nxd matrix Y
+    :param X: Mxd matrix
+    :param Y: Nxd matrix
+    :return D: An MxN distance matrix
+    """
     M = X.shape[0]
     N = Y.shape[0]
     K = X.shape[1]
@@ -74,6 +88,13 @@ def getCSMEMD1D(X, Y):
     return D
 
 def getCSMCosine(X, Y):
+    """
+    Return the cosine distance between all vectors in X
+    and all vectors in Y
+    :param X: Mxd matrix
+    :param Y: Nxd matrix
+    :return D: An MxN distance matrix
+    """
     XNorm = np.sqrt(np.sum(X**2, 1))
     XNorm[XNorm == 0] = 1
     YNorm = np.sqrt(np.sum(Y**2, 1))
@@ -85,7 +106,12 @@ def getCSMCosine(X, Y):
 def getOTI(C1, C2, doPlot = False):
     """
     Get the optimial transposition of the first chroma vector
-    with respet to the second one
+    with respect to the second one
+    :param C1: Chroma vector 1
+    :param C2: Chroma vector 2
+    :param doPlot: Plot the agreements over all shifts
+    :returns: An index by which to rotate the first chroma vector
+    to match with the second
     """
     NChroma = len(C1)
     shiftScores = np.zeros(NChroma)
@@ -98,6 +124,16 @@ def getOTI(C1, C2, doPlot = False):
     return np.argmax(shiftScores)
 
 def getCSMCosineOTI(X, Y, C1, C2):
+    """
+    Get the cosine distance between each row of X
+    and each row of Y after doing a global optimal
+    transposition change from X to Y
+    :param X: Mxd matrix
+    :param Y: Nxd matrix
+    :param C1: Global chroma vector 1
+    :param C2: Global chroma vector 2
+    :return D: An MxN distance matrix
+    """
     NChromaBins = len(C1)
     ChromasPerBlock = X.shape[1]/NChromaBins
     oti = getOTI(C1, C2)
@@ -108,10 +144,14 @@ def getCSMCosineOTI(X, Y, C1, C2):
 
 def CSMToBinary(D, Kappa):
     """
-    Turn a cross-similarity matrix into a binary cross-simlarity matrix
-    If Kappa = 0, take all neighbors
-    If Kappa < 1 it is the fraction of mutual neighbors to consider
-    Otherwise Kappa is the number of mutual neighbors to consider
+    Turn a cross-similarity matrix into a binary cross-simlarity matrix, using partitions instead of
+    nearest neighbors for speed
+    :param D: M x N cross-similarity matrix
+    :param Kappa:
+        If Kappa = 0, take all neighbors
+        If Kappa < 1 it is the fraction of mutual neighbors to consider
+        Otherwise Kappa is the number of mutual neighbors to consider
+    :returns B: MxN binary cross-similarity matrix
     """
     N = D.shape[0]
     M = D.shape[1]
@@ -130,14 +170,22 @@ def CSMToBinary(D, Kappa):
 
 def CSMToBinaryMutual(D, Kappa):
     """
-    Take the binary AND between the nearest neighbors in one direction
-    and the other
+    Take the binary AND between the nearest neighbors in one
+    direction and the other
+    :param D: MxN cross-similarity matrix
+    :param Kappa: (as in CSMToBinary)
+    :returns B: MxN mutual binary cross-similarity matrix
     """
     B1 = CSMToBinary(D, Kappa)
     B2 = CSMToBinary(D.T, Kappa).T
     return B1*B2
 
 def getCSMType(Features1, O1, Features2, O2, Type):
+    """
+    A wrapper around all of the cross-similarity functions
+    which automatically determines which one to use based
+    on the type passed in
+    """
     if Type == "Euclidean":
         return getCSM(Features1, Features2)
     elif Type == "Cosine":
@@ -154,14 +202,21 @@ def getCSMType(Features1, O1, Features2, O2, Type):
 ##      Ordinary CSM and Smith Waterman Tests       ##
 ######################################################
 
-def getCSMSmithWatermanScores(args, doPlot = False):
+def getCSMSmithWatermanScores(Features1, O1, Features2, O2, Kappa, Type, doPlot = False):
     """
-    Helper fucntion for "runCovers80Experiment" that can be used for multiprocess
-    computing of all of the smith waterman scores for a pair of songs.
-    Features1 and Features2 are Mxk and Nxk matrices of features, respectively
-    The type of cross-similarity can also be specified
+    Compute the Smith Waterman score between two songs
+    using a single feature set
+    :param Features1: Mxk matrix of features in song 1
+    :param O1: Auxiliary info for song 1
+    :param Features2: Nxk matrix of features in song 2
+    :param O2: Auxiliary info for song 2
+    :param Kappa: Nearest neighbors param for CSM
+    :param Type: Type of CSM to use
+    :param doPlot: If True, plot the results of Smith waterman
+    :returns: Score if doPlot = False, or dictionary of
+        {'score', 'DBinary', 'D', 'maxD', 'CSM'}
+        if doPlot is True
     """
-    [Features1, O1, Features2, O2, Kappa, Type] = args
     CSM = getCSMType(Features1, O1, Features2, O2, Type)
     DBinary = CSMToBinaryMutual(CSM, Kappa)
     if doPlot:
@@ -178,38 +233,28 @@ def getCSMSmithWatermanScores(args, doPlot = False):
         return {'score':maxD, 'DBinary':DBinary, 'D':D, 'maxD':maxD, 'CSM':CSM}
     return SAC.swalignimpconstrained(DBinary)
 
-def getScores(Features, OtherFeatures, Kappa, CSMType):
-    """
-    Features: An array of arrays of features at different tempo levels:
-    [[Tempolevel1Features1, Tempolevel1Feature2, ...],
-    [TempoLevel2Features1, TempoLevel2Features2]]
-    Returns: NxN array of scores, and corresponding NxNx2 array
-    of the best tempo indices
-    """
-    NTempos = len(Features)
-    parpool = PPool(processes = 8)
-    N = len(Features[0])
-    Scores = np.zeros((N, N))
-    BestTempos = np.zeros((N, N, 2), dtype=np.int32)
-    for ti in range(NTempos):
-        for i in range(N):
-            print("Comparing song %i of %i tempo level %i"%(i, N, ti))
-            for tj in range(NTempos):
-                Z = zip([Features[ti][i]]*N, [OtherFeatures[ti][i]]*N, Features[tj], OtherFeatures[tj], [Kappa]*N, [CSMType]*N)
-                s = np.zeros((2, Scores.shape[1]))
-                s[0, :] = Scores[i, :]
-                s[1, :] = parpool.map(getCSMSmithWatermanScores, Z)
-                Scores[i, :] = np.max(s, 0)
-                #Update which tempo combinations were the best
-                BestTempos[i, Scores[i, :] == s[0, :], :] = [ti, tj]
-    return (Scores, BestTempos)
-
-
 ######################################################
 ##        Early OR Merge Smith Waterman Tests       ##
 ######################################################
-def getCSMSmithWatermanScoresORMerge(args, doPlot = False):
-    [AllFeatures1, O1, AllFeatures2, O2, Kappa, CSMTypes] = args
+def getCSMSmithWatermanScoresORMerge(AllFeatures1, O1, AllFeatures2, O2, Kappa, CSMTypes, doPlot = False):
+    """
+    Compute the Smith Waterman score between two songs
+    after doing a binary OR on individual feature sets
+    :param AllFeatures1: A dictionary of Mxk matric of
+        features in song 1
+    :param O1: Auxiliary info for song 1
+    :param AllFeatures2: A dictionary of Nxk matrix of
+        features in song 2
+    :param O2: Auxiliary info for song 2
+    :param Kappa: Nearest neighbors param for CSM
+    :param CSMTypes: Dictionary of types of CSMs for each
+        feature
+    :param doPlot: If True, plot the results of the fusion
+        and of Smith Waterman
+    :returns: Score if doPlot = False, or dictionary of
+        {'score', 'DBinary', 'D', 'maxD'}
+        if doPlot is True
+    """
     CSMs = []
     DsBinary = []
     Features = AllFeatures1.keys()
@@ -244,35 +289,34 @@ def getCSMSmithWatermanScoresORMerge(args, doPlot = False):
         return {'score':maxD, 'DBinary':DBinary, 'D':D, 'maxD':maxD}
     return SAC.swalignimpconstrained(DBinary)
 
-
-def getScoresEarlyORMerge(AllFeatures, OtherFeatures, Kappa, CSMTypes):
-    NTempos = len(AllFeatures)
-    parpool = PPool(processes = 8)
-    N = len(AllFeatures[0])
-    Scores = np.zeros((N, N))
-    BestTempos = np.zeros((N, N, 2), dtype=np.int32)
-    for ti in range(NTempos):
-        for i in range(N):
-            tic = time.time()
-            print("Comparing song %i of %i tempo level %i"%(i, N, ti))
-            for tj in range(NTempos):
-                Z = zip([AllFeatures[ti][i]]*N, [OtherFeatures[ti][i]]*N, AllFeatures[tj], OtherFeatures[tj], [Kappa]*N, [CSMTypes]*N)
-                s = np.zeros((2, Scores.shape[1]))
-                s[0, :] = Scores[i, :]
-                s[1, :] = parpool.map(getCSMSmithWatermanScoresORMerge, Z)
-                Scores[i, :] = np.max(s, 0)
-                #Update which tempo combinations were the best
-                BestTempos[i, Scores[i, :] == s[0, :], :] = [ti, tj]
-            toc = time.time()
-            print "Elapsed time: ", toc-tic
-    return (Scores, BestTempos)
-
-
 ######################################################
 ##          Early Fusion Smith Waterman Tests       ##
 ######################################################
-def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative = False):
-    [AllFeatures1, O1, AllFeatures2, O2, Kappa, K, NIters, CSMTypes] = args
+def getCSMSmithWatermanScoresEarlyFusionFull(AllFeatures1, O1, AllFeatures2, O2, Kappa, K, NIters, CSMTypes, doPlot = False, conservative = False):
+    """
+    Compute the Smith Waterman score between two songs
+    after doing early similarity network fusion on
+    individual feature sets
+    :param AllFeatures1: A dictionary of Mxk matric of
+        features in song 1
+    :param O1: Auxiliary info for song 1
+    :param AllFeatures2: A dictionary of Nxk matrix of
+        features in song 2
+    :param O2: Auxiliary info for song 2
+    :param Kappa: Nearest neighbors param for CSM
+    :param CSMTypes: Dictionary of types of CSMs for each
+        feature
+    :param doPlot: If True, plot the results of the fusion
+        and of Smith Waterman
+    :param conservative: Whether to use a percentage of the
+        closest distances instead of mutual nearest neighbors
+        (False by default, but useful for audio synchronization)
+    :returns:
+        if doPlot = False
+            {'score', 'CSM', 'DBinary', 'OtherCSMs'}
+        if doPlot = True
+            {'score', 'CSM', 'DBinary', 'D', 'maxD', 'path'}
+    """
     CSMs = [] #Individual CSMs
     Ws = [] #W built from fused CSMs/SSMs
     Features = AllFeatures1.keys()
@@ -336,28 +380,9 @@ def getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot = False, conservative 
         return {'score':maxD, 'CSM':CSM, 'DBinary':DBinary, 'D':D, 'maxD':maxD, 'path':path}
     return {'score':SAC.swalignimpconstrained(DBinary), 'CSM':CSM, 'DBinary':DBinary, 'OtherCSMs':OtherCSMs}
 
-def getCSMSmithWatermanScoresEarlyFusion(args, doPlot = False):
-    return getCSMSmithWatermanScoresEarlyFusionFull(args, doPlot)['score']
-
-
-def getScoresEarlyFusion(AllFeatures, OtherFeatures, Kappa, K, NIters, CSMTypes):
-    NTempos = len(AllFeatures)
-    parpool = PPool(processes = 8)
-    N = len(AllFeatures[0])
-    Scores = np.zeros((N, N))
-    BestTempos = np.zeros((N, N, 2), dtype=np.int32)
-    for ti in range(NTempos):
-        for i in range(N):
-            print("Comparing song %i of %i tempo level %i"%(i, N, ti))
-            tic = time.time()
-            for tj in range(NTempos):
-                Z = zip([AllFeatures[ti][i]]*N, [OtherFeatures[ti][i]]*N, AllFeatures[tj], OtherFeatures[tj], [Kappa]*N, [K]*N, [NIters]*N, [CSMTypes]*N)
-                s = np.zeros((2, Scores.shape[1]))
-                s[0, :] = Scores[i, :]
-                s[1, :] = parpool.map(getCSMSmithWatermanScoresEarlyFusion, Z)
-                Scores[i, :] = np.max(s, 0)
-                #Update which tempo combinations were the best
-                BestTempos[i, Scores[i, :] == s[0, :], :] = [ti, tj]
-            toc = time.time()
-            print "Elapsed time: ", toc-tic
-    return (Scores, BestTempos)
+def getCSMSmithWatermanScoresEarlyFusion(AllFeatures1, O1, AllFeatures2, O2, Kappa, K, NIters, CSMTypes, doPlot = False):
+    """
+    Just return the score from getCSMSmithWatermanScoresEarlyFusionFull,
+    using the same parameters
+    """
+    return getCSMSmithWatermanScoresEarlyFusionFull(AllFeatures1, O1, AllFeatures2, O2, Kappa, K, NIters, CSMTypes, doPlot)['score']

@@ -1,7 +1,7 @@
 """
 Programmer: Chris Tralie
-Purpose: To provide an interface for the MIREX 2017
-cover songs competition
+Purpose: Code for processing batches features and song comparisons.
+Used for Covers80, Covers1000, and MIREX
 """
 
 import numpy as np
@@ -11,8 +11,7 @@ from BlockWindowFeatures import *
 from MusicFeatures import *
 from EvalStatistics import *
 import SequenceAlignment._SequenceAlignment as SAC
-from multiprocessing import Pool as PPool
-from sys import exit, argv, stdout
+from sys import stdout
 import time
 
 def getMatFilename(scratchDir, filename):
@@ -20,14 +19,23 @@ def getMatFilename(scratchDir, filename):
     prefix = prefix[0:-4]
     return "%s/%s.mat"%(scratchDir, prefix)
 
-def compareBlock(args):
+def compareBatchBlock(args):
     """
     Process a rectangular block of the all pairs score matrix
     between all of the songs.  Return score matrices for each
     individual type of feature, in addition to one for early
     similarity network fusion
+    :param idxs: [start1, end1, start2, end2] range of rectangular
+        block of songs to compare
+    :param Kappa: Percent nearest neighbors to use both for
+        binary cross-similarity and similarity network fusion
+    :param CSMTypes: Dictionary of types of features and
+        associated cross-similarity comparisons to do
+    :param allFiles: List of all files that are being compared
+        from which this block is drawn
+    :param scratchDir: Path to directory for storing block results
     """
-    (idxs, hopSize, Kappa, FeatureParams, CSMTypes, allFiles, scratchDir) = args
+    (idxs, Kappa, CSMTypes, allFiles, scratchDir) = args
     DsFilename = "%s/D%i_%i_%i_%i.mat"%(scratchDir, idxs[0], idxs[1], idxs[2], idxs[3])
     if os.path.exists(DsFilename):
         return sio.loadmat(DsFilename)
@@ -105,46 +113,96 @@ def compareBlock(args):
     sio.savemat(DsFilename, Ds)
     return Ds
 
-def precomputeFeatures(args):
-    (audiofilename, scratchDir, hopSize, lifterexp, Kappa, FeatureParams, TempoLevels) = args
-    tic = time.time()
-    print("Computing features for %s..."%audiofilename)
-    filename = getMatFilename(scratchDir, audiofilename)
-
-    if os.path.exists(filename):
-        print("Skipping...")
-        return
-
-    (XAudio, Fs) = getAudioScipy(audiofilename)
-    print "Fs = ", Fs
-    winSize = Fs/2
-    XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
-
-    XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
-
-    #Computed blocked features at different tempo levels
+def getBatchBeats(TempoLevels, audiofilename, XAudio, Fs, hopSize, ret, consolidateTempos = True):
+    """
+    Compute all beat intervals and tempos for an audio file
+    :param TempoLevels: An array of tempo biases.  0 means use madmom.
+    The rest are biases for dynamic programming beat tracking
+    :param audiofilename: Path to the audio file
+    :param XAudio: Numpy array of audio samples
+    :param Fs: Sample Rate
+    :param hopSize: Hop size for beat onset functions
+    :param ret: Dictionary to store the results
+    """
     tempos = []
-    ret = {'hopSize':hopSize, 'winSize':winSize, 'lifterexp':lifterexp}
     for level in TempoLevels:
-        if level == 0:
-            #Use madmom
-            (tempo, beats) = getRNNDBNOnsets(audiofilename, Fs, hopSize)
-        else:
-            #Use dynamic programming beat tracker biased with a level
-            (tempo, beats) = getBeats(XAudio, Fs, level, hopSize)
+        (tempo, beats) = getBeats(XAudio, Fs, level, hopSize, audiofilename)
         novelTempo = True
         for t in tempos:
             [smaller, larger] = [min(tempo, t), max(tempo, t)]
             if float(larger)/smaller < 1.1:
                 novelTempo = False
                 break
-        if not novelTempo:
+        if not novelTempo and consolidateTempos:
             continue
         tidx = len(tempos)
         ret['beats%i'%tidx] = beats
-        ret['tempo%i'%tidx] = tempo
+        ret['tempos%i'%tidx] = tempo
         tempos.append(tempo)
+    return tempos
 
+def precomputeBatchFeatures(args):
+    """
+    Precompute all of the features for a file, including
+    MFCCs, HPCPs, all beats/tempos at different levels,
+    blocked features at different tempo levels, and the
+    self-similarity W matrix for each feature.  Save all of
+    this to a .mat file
+    :param audiofilename: Path to audio file
+    :param scratchDir: Path to directory to which to store features
+    :param hopSize: Hop size of STFT windows for features
+    :param lifterexp: MFCC lifter parameter
+    :param Kappa: Kappa for W matrix for similarity fusion
+    :param CSMTypes: Dictionary of types of features and
+        associated cross-similarity comparisons to do
+    :param FeatureParams: Dictionary of parameters for computing
+                        features using BlockWindowFeatures.py
+    :param TempoLevels: An array of tempo biases.  If this array
+        contains a 0, compute Madmom tempos.  Otherwise, do
+        dynamic programming beat tracking with that bias
+    :param PFeatures: Precomputed features
+    """
+    (audiofilename, scratchDir, hopSize, Kappa, CSMTypes, FeatureParams, TempoLevels, PFeatures) = args
+    tic = time.time()
+    filename = getMatFilename(scratchDir, audiofilename)
+    if os.path.exists(filename):
+        print("Skipping...")
+        return
+    print("Computing features for %s..."%audiofilename)
+
+    (XAudio, Fs) = getAudio(audiofilename)
+    print "Fs = ", Fs
+    winSize = Fs/2
+    if 'XMFCC' in PFeatures:
+        XMFCC = PFeatures['XMFCC']
+    else:
+        NMFCC = 20
+        if 'NMFCC' in FeatureParams:
+            NMFCC = FeatureParams['NMFCC']
+        lifterexp = 0.6
+        if 'lifterexp' in FeatureParams:
+            lifterexp = FeatureParams['lifterexp']
+        XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
+
+    if 'XChroma' in PFeatures:
+        XChroma = PFeatures['XChroma']
+    else:
+        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
+
+    #Computed blocked features at different tempo levels
+    ret = {'hopSize':hopSize, 'winSize':winSize, 'lifterexp':lifterexp}
+    if 'tempos' in PFeatures:
+        #If tempos have been precomputed, load them in
+        tempos = PFeatures['tempos']
+        for i in range(len(tempos)):
+            ret['tempos%i'%i] = Features['tempos%i'%i]
+            ret['beats%i'%i] = Features['beats%i'%i]
+    else:
+        #Otherwise, compute tempos / beat intervals
+        tempos = getBatchBeats(TempoLevels, audiofilename, XAudio, Fs, hopSize, ret)
+    for tidx in range(len(tempos)):
+        tempo = ret['tempos%i'%tidx]
+        beats = ret['beats%i'%tidx]
         (Feats, O) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams), XMFCC, XChroma)
         ret['ChromaMean%i'%tidx] = O['ChromaMean']
 
@@ -157,16 +215,25 @@ def precomputeFeatures(args):
 
     ret['NTempos'] = len(tempos)
     print("%i Unique Tempos"%len(tempos))
-    print("Elapsed Time: ", time.time() - tic)
+    print("Elapsed Time: %g"%(time.time() - tic))
     sio.savemat(filename, ret)
 
-
-def assembleBlocks(CSMTypes, res, ranges):
+def assembleBatchBlocks(FeatureTypes, res, ranges, N):
+    """
+    Code for assembling a bunch of rectangular block comparisons
+    into one large matrix
+    :param FeatureTypes: The types of features
+    :param res: List of blocks returned from compareBatchBlock
+    :param ranges: An array of block ranges, parallel with res
+    :param N: The total batch is NxN
+    :return Ds: A dictionary of NxN all pairs matrices, one for
+        each feature type
+    """
     #Assemble all blocks together
     Ds = {}
     for i in range(len(ranges)):
         [i1, i2, j1, j2] = ranges[i]
-        for Feature in CSMTypes.keys() + ['SNF']:
+        for Feature in FeatureTypes:
             if not Feature in Ds:
                 Ds[Feature] = np.zeros((N, N))
             Ds[Feature][i1:i2, j1:j2] = res[i][Feature]
@@ -178,108 +245,14 @@ def assembleBlocks(CSMTypes, res, ranges):
 
     return Ds
 
-if __name__ == '__main__':
-    print argv
-    if len(argv) < 5:
-        print("Usage: python doMIREX.py <collection_list_file> <query_list_file> <working_directory> <output_file>")
-        exit(0)
-    #Open collection and query lists
-    fin = open(argv[1], 'r')
-    collectionFiles = [f.strip() for f in fin.readlines()]
-    fin.close()
-
-    fin = open(argv[2], 'r')
-    queryFiles = [f.strip() for f in fin.readlines()]
-    fin.close()
-
-    #Take the union of the files in the query set and the collection
-    #set and figure out how to index them from the original lists
-    collectionSet = {}
-    for i in range(len(collectionFiles)):
-        collectionSet[collectionFiles[i]] = i
-    allFiles = [] + collectionFiles
-    query2All = {}
-    for i in range(len(queryFiles)):
-        if not queryFiles[i] in collectionSet:
-            query2All[i] = len(allFiles)
-            allFiles.append(queryFiles[i])
-        else:
-            query2All[i] = collectionSet[queryFiles[i]]
-
-    print("There are %i files total"%len(allFiles))
-
-    scratchDir = argv[3]
-    filenameOut = argv[4]
-
-    #Define parameters
-    hopSize = 512
-    Kappa = 0.1
-    NMFCC = 20
-    lifterexp = 0.6
-    #TempoLevels = [60, 120, 180]
-    TempoLevels = [0]
-    #TempoLevels = [120, 180]
-    FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50, 'MFCCSamplesPerBlock':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
-
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
-
-    #Setup parallel pool
-    NThreads = 8
-    if len(argv) > 5:
-        NThreads = int(argv[5])
-    parpool = PPool(NThreads)
-
-    #Precompute beat intervals, MFCC, and HPCP Features for each song
-    NF = len(allFiles)
-    args = zip(allFiles, [scratchDir]*NF, [hopSize]*NF, [lifterexp]*NF, [Kappa]*NF, [FeatureParams]*NF, [TempoLevels]*NF)
-    """
-    for i in range(NF):
-        precomputeFeatures((allFiles[i], scratchDir, hopSize, lifterexp, Kappa, FeatureParams, TempoLevels))
-    """
-    parpool.map(precomputeFeatures, args)
-
-    #Process blocks of similarity at a time
-    N = len(allFiles)
-    NPerBlock = 20
-    NBlocks = int(np.ceil(N/float(NPerBlock)))
+def getBatchBlockRanges(N, NPerBlock):
+    K = int(np.ceil(N/float(NPerBlock)))
     ranges = []
-    for i in range(NBlocks):
+    for i in range(K):
         i1 = i*NPerBlock
-        for j in range(NBlocks):
+        for j in range(K):
             j1 = j*NPerBlock
             i2 = min(i1+NPerBlock, N)
             j2 = min(j1+NPerBlock, N)
             ranges.append([i1, i2, j1, j2])
-    args = zip(ranges, [hopSize]*len(ranges), [Kappa]*len(ranges), [FeatureParams]*len(ranges), [CSMTypes]*len(ranges), [allFiles]*len(ranges), [scratchDir]*len(ranges))
-    res = parpool.map(compareBlock, args)
-    """
-    for i in range(len(ranges)):
-        compareBlock((ranges[i], hopSize, Kappa, FeatureParams, CSMTypes, allFiles, scratchDir))
-    """
-
-    Ds = assembleBlocks(CSMTypes, res, ranges)
-
-    #Perform late fusion
-    Scores = [1.0/Ds[F] for F in Ds.keys()]
-    Ds['Late'] = doSimilarityFusion(Scores, 20, 20, 1)
-    D = Ds['Late']
-
-    #Save full distance matrix in case there's a problem
-    #with the text output
-    sio.savemat("%s/D.mat"%scratchDir, Ds)
-
-    #Save the results to a text file
-    fout = open(filenameOut, "w")
-    fout.write("Early+Late SNF Chris Tralie 2017\n")
-    for i in range(len(allFiles)):
-        f = allFiles[i]
-        fout.write("%i\t%s\n"%(i+1, f))
-    fout.write("Q/R")
-    for i in range(len(allFiles)):
-        fout.write("\t%i"%(i+1))
-    for i in range(len(queryFiles)):
-        idx = query2All[i]
-        fout.write("\n%i"%(idx+1))
-        for j in range(len(allFiles)):
-            fout.write("\t%g"%(D[idx, j]))
-    fout.close()
+    return ranges

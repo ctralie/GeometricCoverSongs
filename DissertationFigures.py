@@ -1,6 +1,12 @@
+"""
+Functions to make some of the figures I used in my dissertation
+and in my ISMIR 2017 paper
+"""
 from BlockWindowFeatures import *
 from Covers80Experiments import *
 from CSMSSMTools import *
+from Covers80 import *
+from SongComparator import *
 import scipy.io.wavfile
 import librosa
 
@@ -46,9 +52,9 @@ def getSampleSSMs():
         fileprefix = "Covers80%i"%index
         filename1 = "covers32k/" + files1[index] + ".mp3"
         filename2 = "covers32k/" + files2[index] + ".mp3"
-        artist1 = getArtistName(files1[index])
-        artist2 = getArtistName(files2[index])
-        songName = getSongName(files1[index])
+        artist1 = getCovers80ArtistName(files1[index])
+        artist2 = getCovers80ArtistName(files2[index])
+        songName = getCovers80SongName(files1[index])
 
         print "Getting features for %s..."%filename1
         (XAudio1, Fs1) = getAudio(filename1)
@@ -77,7 +83,7 @@ def getSampleSSMs():
         s2 = beats1[idx[0]+BeatsPerBlock]*hopSize
         x1 = XAudio1[s1:s2]
         scipy.io.wavfile.write("DissertationFigures/%i_1.wav"%index, Fs1, x1)
-        
+
         D2 = np.zeros((DPixels, DPixels))
         D2[I < J] = Features2['SSMs'][idx[1]]
         D2 = D2 + D2.T
@@ -87,19 +93,19 @@ def getSampleSSMs():
         s2 = beats2[idx[1]+BeatsPerBlock]*hopSize
         x2 = XAudio2[s1:s2]
         scipy.io.wavfile.write("DissertationFigures/%i_2.wav"%index, Fs2, x2)
-        
+
         #Plot spectrograms
         plt.clf()
         plt.figure(figsize=(12, 5))
         plt.subplot(211)
         S1 = librosa.logamplitude(np.abs(librosa.stft(x1)))
-        librosa.display.specshow(S1, x_axis='time', y_axis='log')
+        #librosa.display.specshow(S1, x_axis='time', y_axis='log')
         plt.subplot(212)
         S2 = librosa.logamplitude(np.abs(librosa.stft(x2)))
-        librosa.display.specshow(S2, x_axis='time', y_axis='log')
+        #librosa.display.specshow(S2, x_axis='time', y_axis='log')
         plt.savefig("DissertationFigures/Spectrograms%i.svg"%index, bbox_inches='tight')
-        
-        
+
+
         #Plot SSMs
         plt.clf()
         plt.subplot(121)
@@ -113,7 +119,7 @@ def getSampleSSMs():
         plt.xlabel("Time (sec)")
         plt.ylabel("Time (sec)")
         plt.savefig("DissertationFigures/SSMs%i.svg"%index, bbox_inches = 'tight')
-        
+
 #        #Make HPCP CSM
 #        off1 = 400
 #        off2 = 700
@@ -122,7 +128,7 @@ def getSampleSSMs():
 #        CSM = getCSMType(F1, O1, F2, O2, 'CosineOTI')
 #        idx = plotCSM(CSM, artist1, artist2, songName)
 #        plt.savefig("DissertationFigures/CSM%i_HPCP.svg"%index, bbox_inches = 'tight')
-#        
+#
 #        #Plot HPCP Blocks
 #        plt.clf()
 #        HPCP1 = Features1['Chromas'][idx[0] + off1]
@@ -136,7 +142,7 @@ def getSampleSSMs():
 #        librosa.display.specshow(HPCP2.T, y_axis = 'chroma')
 #        plt.title("HPCP %s"%artist2)
 #        plt.savefig("DissertationFigures/HPCP_%i.svg"%index, bbox_inches = 'tight')
-        
+
 def makeCSMWinSizeVideo():
     Kappa = 0.1
     hopSize = 512
@@ -155,27 +161,27 @@ def makeCSMWinSizeVideo():
     filename2 = "covers32k/" + files2[index1] + ".mp3"
     filename3 = "covers32k/" + files2[index2] + ".mp3"
 
-    artist1 = getArtistName(files1[index1])
-    artist2 = getArtistName(files2[index1])
-    artist3 = getArtistName(files2[index2])
-    songName1 = getSongName(files1[index1])
-    songName2 = getSongName(files2[index1])
-    songName3 = getSongName(files2[index2])
+    artist1 = getCovers80ArtistName(files1[index1])
+    artist2 = getCovers80ArtistName(files2[index1])
+    artist3 = getCovers80ArtistName(files2[index2])
+    songName1 = getCovers80SongName(files1[index1])
+    songName2 = getCovers80SongName(files2[index1])
+    songName3 = getCovers80SongName(files2[index2])
 
     FeatureParams = {'MFCCBeatsPerBlock':4, 'DPixels':50}
 
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
-    
-    
+
+
     (XAudio1, Fs1) = getAudio(filename1)
     (tempo1, beats1) = getBeats(XAudio1, Fs1, TempoBias, hopSize)
 
     (XAudio2, Fs2) = getAudio(filename2)
     (tempo2, beats2) = getBeats(XAudio2, Fs2, TempoBias, hopSize)
-    
+
     (XAudio3, Fs3) = getAudio(filename3)
     (tempo3, beats3) = getBeats(XAudio3, Fs3, TempoBias, hopSize)
-    
+
     FeatureName = 'SSMs'
     plt.figure(figsize=(15, 12))
     N1 = len(beats1)
@@ -186,13 +192,13 @@ def makeCSMWinSizeVideo():
         (Features1, O1) = getBlockWindowFeatures((XAudio1, Fs1, tempo1, beats1, hopSize, FeatureParams))
         (Features2, O2) = getBlockWindowFeatures((XAudio2, Fs2, tempo2, beats2, hopSize, FeatureParams))
         (Features3, O3) = getBlockWindowFeatures((XAudio3, Fs3, tempo3, beats3, hopSize, FeatureParams))
-    
-    
-        res1 =  getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
-        res2 =  getCSMSmithWatermanScores([Features1[FeatureName], O1, Features3[FeatureName], O3, Kappa, CSMTypes[FeatureName]], True)
-        
+
+
+        res1 =  getCSMSmithWatermanScores(Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName], True)
+        res2 =  getCSMSmithWatermanScores(Features1[FeatureName], O1, Features3[FeatureName], O3, Kappa, CSMTypes[FeatureName], True)
+
         #[artist1, artist2, artist3] = ["", "", ""]
-        
+
         plt.clf()
         plt.subplot(231)
         plt.imshow(res1['CSM'], cmap = 'afmhot', interpolation = 'nearest')
@@ -215,7 +221,7 @@ def makeCSMWinSizeVideo():
         plt.ylabel("%s Beat Index"%artist1)
         plt.xlim([0, N2])
         plt.ylim([N1, 0])
-        
+
         plt.subplot(234)
         plt.imshow(res2['CSM'], cmap = 'afmhot', interpolation = 'nearest')
         plt.title("False Cover, BeatsPerBlock = %i\n%s vs\n %s"%(Win, songName1, songName3))
@@ -237,7 +243,7 @@ def makeCSMWinSizeVideo():
         plt.ylabel("%s Beat Index"%artist1)
         plt.xlim([0, N3])
         plt.ylim([N1, 0])
-        
+
         plt.savefig("%i.png"%Win, bbox_inches = 'tight')
 
 
@@ -257,21 +263,21 @@ def makeCSMSSMSizeVideo():
     filename1 = "covers32k/" + files1[index] + ".mp3"
     filename2 = "covers32k/" + files2[index] + ".mp3"
 
-    artist1 = getArtistName(files1[index])
-    artist2 = getArtistName(files2[index])
-    songName = getSongName(files1[index])
+    artist1 = getCovers80ArtistName(files1[index])
+    artist2 = getCovers80ArtistName(files2[index])
+    songName = getCovers80SongName(files1[index])
 
     FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50}
 
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
-    
-    
+
+
     (XAudio1, Fs1) = getAudio(filename1)
     (tempo1, beats1) = getBeats(XAudio1, Fs1, TempoBias, hopSize)
 
     (XAudio2, Fs2) = getAudio(filename2)
     (tempo2, beats2) = getBeats(XAudio2, Fs2, TempoBias, hopSize)
-    
+
     FeatureName = 'SSMs'
     plt.figure(figsize=(15, 6))
     N1 = len(beats1)
@@ -281,9 +287,9 @@ def makeCSMSSMSizeVideo():
         FeatureParams['DPixels'] = DPixels
         (Features1, O1) = getBlockWindowFeatures((XAudio1, Fs1, tempo1, beats1, hopSize, FeatureParams))
         (Features2, O2) = getBlockWindowFeatures((XAudio2, Fs2, tempo2, beats2, hopSize, FeatureParams))
-    
-        res =  getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
-        
+
+        res =  getCSMSmithWatermanScores(Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName], True)
+
         plt.clf()
         plt.subplot(131)
         plt.imshow(res['CSM'], cmap = 'afmhot', interpolation = 'nearest')
@@ -306,7 +312,7 @@ def makeCSMSSMSizeVideo():
         plt.ylabel("%s Beat Index"%artist1)
         plt.xlim([0, N2])
         plt.ylim([N1, 0])
-        
+
         plt.savefig("%i.png"%count, bbox_inches = 'tight')
         count += 1
 
@@ -330,10 +336,10 @@ def getFalseCoversPair():
     filename2 = "covers32k/" + files2[index2] + ".mp3"
     fileprefix = "Covers80_%i_%i"%(index1, index2)
 
-    artist1 = getArtistName(files1[index1])
-    artist2 = getArtistName(files2[index2])
-    songName1 = getSongName(files1[index1])
-    songName2 = getSongName(files2[index2])
+    artist1 = getCovers80ArtistName(files1[index1])
+    artist2 = getCovers80ArtistName(files2[index2])
+    songName1 = getCovers80SongName(files1[index1])
+    songName2 = getCovers80SongName(files2[index2])
 
     #filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
     #filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'

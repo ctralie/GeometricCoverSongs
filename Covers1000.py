@@ -139,10 +139,10 @@ def compareSongs1000(Features1List, Features2List, BeatsPerBlock, Kappa, Feature
         for j in range(len(Features2List)):
             (Features2, O2) = Features2List[j]
             for FeatureName in Features1:
-                Results[FeatureName] =  max(Results[FeatureName], getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], False))
+                Results[FeatureName] =  max(Results[FeatureName], getCSMSmithWatermanScores(Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName], False))
 
             #Do cross-similarity fusion
-            res = getCSMSmithWatermanScoresEarlyFusionFull([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], False)['score']
+            res = getCSMSmithWatermanScoresEarlyFusionFull(Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes, False)['score']
             Results['SNF'] = max(res, Results['SNF'])
     return Results
 

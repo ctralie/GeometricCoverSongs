@@ -48,12 +48,12 @@ def pretty_floats(obj):
 def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, outfilename, song1name = 'Song 1', song2name = 'Song 2'):
     print "Getting features for %s..."%filename1
     (XAudio, Fs) = getAudio(filename1)
-    (tempo, beats1) = getBeats(XAudio, Fs, TempoBias1, hopSize)
+    (tempo, beats1) = getBeats(XAudio, Fs, TempoBias1, hopSize, filename1)
     (Features1, O1) = getBlockWindowFeatures((XAudio, Fs, tempo, beats1, hopSize, FeatureParams))
 
     print "Getting features for %s..."%filename2
     (XAudio, Fs) = getAudio(filename2)
-    (tempo, beats2) = getBeats(XAudio, Fs, TempoBias2, hopSize)
+    (tempo, beats2) = getBeats(XAudio, Fs, TempoBias2, hopSize, filename2)
     (Features2, O2) = getBlockWindowFeatures((XAudio, Fs, tempo, beats2, hopSize, FeatureParams))
 
     print "Feature Types: ", Features1.keys()
@@ -65,7 +65,7 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
     FeatureCSMs = {}
     for FeatureName in Features1:
         print "Doing %s..."%FeatureName
-        res =  getCSMSmithWatermanScores([Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName]], True)
+        res =  getCSMSmithWatermanScores(Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName], True)
         CSMs = {}
         CSMs['D'] = getBase64PNGImage(res['D'], 'afmhot')
         CSMs['CSM'] = getBase64PNGImage(res['CSM'], 'afmhot')
@@ -75,7 +75,7 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
 
     #Do OR Merging
     print "Doing OR Merging..."
-    res = getCSMSmithWatermanScoresORMerge([Features1, O1, Features2, O2, Kappa, CSMTypes], True)
+    res = getCSMSmithWatermanScoresORMerge(Features1, O1, Features2, O2, Kappa, CSMTypes, True)
     CSMs = {}
     CSMs['D'] = getBase64PNGImage(res['D'], 'afmhot')
     CSMs['CSM'] = getBase64PNGImage(1-res['DBinary'], 'gray')
@@ -88,7 +88,7 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
     print "Doing similarity network fusion..."
     K = 20
     NIters = 3
-    res = getCSMSmithWatermanScoresEarlyFusionFull([Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes], True)
+    res = getCSMSmithWatermanScoresEarlyFusionFull(Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes, True)
     CSMs = {}
     CSMs['D'] = getBase64PNGImage(res['D'], 'afmhot')
     CSMs['CSM'] = getBase64PNGImage(res['CSM'], 'afmhot')
@@ -107,30 +107,43 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
 if __name__ == '__main__':
     Kappa = 0.1
     hopSize = 512
-    TempoBias1 = 120
-    TempoBias2 = 120
+    TempoBias1 = 0
+    TempoBias2 = 0
 
-    
-#    filename1 = "MJ.mp3"
-#    filename2 = "AAF.mp3"
-#    fileprefix = "SmoothCriminal"
-#    artist1 = "Michael Jackson"
-#    artist2 = "Alien Ant Farm"
-#    songName = "Smooth Criminal"
+        
+    filename1 = "MJ.mp3"
+    filename2 = "AAF.mp3"
+    fileprefix = "SmoothCriminal"
+    artist1 = "Michael Jackson"
+    artist2 = "Alien Ant Farm"
+    songName = "Smooth Criminal"
 
-#    filename1 = "Eurythmics.mp3"
-#    filename2 = "MarilynManson.mp3"
-#    artist1 = "Eurythmics"
-#    artist2 = "Marilyn Manson"
-#    fileprefix = "sweetdreams"
-#    songName = "Sweet Dreams"
+    """
+    filename1 = "Eurythmics.mp3"
+    filename2 = "MarilynManson.mp3"
+    artist1 = "Eurythmics"
+    artist2 = "Marilyn Manson"
+    fileprefix = "sweetdreams"
+    songName = "Sweet Dreams"
+    """
 
+    """
     filename1 = "BadCompany.mp3"
     filename2 = "BadCompanyFive.mp3"
     artist1 = "Bad Company"
     artist2 = "Five Finger Discount"
     fileprefix = "badcompany"
     songName = "Bad Company"
+    """
+    
+    """
+    filename1 = "BlurredLines.mp3"
+    filename2 = "GotToGiveItUp.mp3"
+    artist1 = "Robin Thicke"
+    artist2 = "Marvin Gaye"
+    fileprefix = "blurred"
+    songName = "Blurred Lines"
+    """
 
 
     FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}

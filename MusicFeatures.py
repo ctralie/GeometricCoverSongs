@@ -1,3 +1,11 @@
+"""
+Programmer: Chris Tralie
+Purpose: To provide wrappers around various libraries
+(librosa, Essentia, madmom) to compute various features,
+in addition to some of my own implementations of these
+features.  Features include MFCC, HPCP, CENS, and beat
+onsets / tempos
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
@@ -10,13 +18,21 @@ from CSMSSMTools import *
 import os
 
 def getAudioScipy(filename):
+    """
+    Wrap around scipy to load audio.  Since scipy only
+    loads wav files, call avconv through a subprocess to
+    convert any non-wav files to a temporary wav file,
+    which is removed after loading:
+    :param filename: Path to audio file
+    :return (XAudio, Fs): Audio in samples, sample rate
+    """
     toload = filename
     tempfilename = ""
     if not filename[-3::] == 'wav':
         tempfilename = "%s.wav"%filename[0:-4]
         if os.path.exists(tempfilename):
             os.remove(tempfilename)
-        subprocess.call(["avconv", "-i", filename, tempfilename])
+        subprocess.call(["avconv", "-i", filename, "-ar", "44100", tempfilename])
         toload = tempfilename
     Fs, XAudio = wavfile.read(toload)
     #Convert shorts to floats
@@ -28,39 +44,25 @@ def getAudioScipy(filename):
     return (XAudio, Fs)
 
 def getAudio(filename):
+    """
+    Use librosa to load audio
+    :param filename: Path to audio file
+    :return (XAudio, Fs): Audio in samples, sample rate
+    """
     import librosa
     XAudio, Fs = librosa.load(filename)
     XAudio = librosa.core.to_mono(XAudio)
     return (XAudio, Fs)
 
-def getBeats(XAudio, Fs, TempoBias, hopSize):
-    if TempoBias == -1:
-        return getDegaraOnsets(XAudio, Fs, hopSize)
-    try:
-        import librosa
-        (tempo, beats) = librosa.beat.beat_track(XAudio, Fs, start_bpm = TempoBias, hop_length = hopSize)
-    except:
-        print("Falling back to Degara for beat tracking...")
-        (tempo, beats) = getDegaraOnsets(XAudio, Fs, hopSize)
-    return (tempo, beats)
-
-def getDegaraOnsets(XAudio, Fs, hopSize):
-    """
-    Call Essentia's implementation of Degara's technique
-    """
-    from essentia import Pool, array
-    import essentia.standard as ess
-    X = array(XAudio)
-    b = ess.BeatTrackerDegara()
-    beats = b(X)
-    tempo = 60/np.mean(beats[1::] - beats[0:-1])
-    beats = np.array(np.round(beats*Fs/hopSize), dtype=np.int64)
-    return (tempo, beats)
-
 def getMultiFeatureOnsets(XAudio, Fs, hopSize):
     """
     Call Essentia's implemtation of multi feature
     beat tracking
+    :param XAudio: Numpy array of raw audio samples
+    :param Fs: Sample rate
+    :param hopSize: Hop size of each onset function value
+    :returns (tempo, beats): Average tempo, numpy array
+        of beat intervals in seconds
     """
     from essentia import Pool, array
     import essentia.standard as ess
@@ -73,10 +75,34 @@ def getMultiFeatureOnsets(XAudio, Fs, hopSize):
     beats = np.array(np.round(beats*Fs/hopSize), dtype=np.int64)
     return (tempo, beats)
 
+def getDegaraOnsets(XAudio, Fs, hopSize):
+    """
+    Call Essentia's implementation of Degara's technique
+    :param XAudio: Numpy array of raw audio samples
+    :param Fs: Sample rate
+    :param hopSize: Hop size of each onset function value
+    :returns (tempo, beats): Average tempo, numpy array
+        of beat intervals in seconds
+    """
+    from essentia import Pool, array
+    import essentia.standard as ess
+    X = array(XAudio)
+    b = ess.BeatTrackerDegara()
+    beats = b(X)
+    tempo = 60/np.mean(beats[1::] - beats[0:-1])
+    beats = np.array(np.round(beats*Fs/hopSize), dtype=np.int64)
+    return (tempo, beats)
+
 def getRNNDBNOnsets(filename, Fs, hopSize):
     """
     Call Madmom's implementation of RNN + DBN beat tracking
+    :param filename: Path to audio file
+    :param Fs: Sample rate
+    :param hopSize: Hop size of each onset function value
+    :returns (tempo, beats): Average tempo, numpy array
+        of beat intervals in seconds
     """
+    print("Computing madmom beats...")
     from madmom.features.beats import RNNBeatProcessor, DBNBeatTrackingProcessor
     proc = DBNBeatTrackingProcessor(fps=100)
     act = RNNBeatProcessor()(filename)
@@ -85,7 +111,44 @@ def getRNNDBNOnsets(filename, Fs, hopSize):
     beats = np.array(np.round(b*Fs/hopSize), dtype=np.int64)
     return (tempo, beats)
 
+def getBeats(XAudio, Fs, TempoBias, hopSize, filename = ""):
+    """
+    Get beat intervals using dynamic programming beat
+    tracking with a tempo bias, or if a tempo bias
+    isn't specified, use the madmom RNN+DBN implementation
+    :param XAudio: Flat numpy array of audio samples
+    :param Fs: Sample rate
+    :param hopSize: Hop size of each onset function value
+    :param filename: Path to audio file
+    :returns (tempo, beats): Average tempo, numpy array
+        of beat intervals in seconds
+    """
+    if TempoBias == 0:
+        if len(filename) == 0:
+            return getDegaraOnsets(XAudio, Fs, hopSize)
+        return getRNNDBNOnsets(filename, Fs, hopSize)
+    try:
+        import librosa
+        return librosa.beat.beat_track(XAudio, Fs, start_bpm = TempoBias, hop_length = hopSize)
+    except:
+        print("Falling back to Degara for beat tracking...")
+        if len(filename) == 0:
+            return getDegaraOnsets(XAudio, Fs, hopSize)
+        return getRNNDBNOnsets(filename, Fs, hopSize)
+
 def getMelFilterbank(Fs, winSize, NSpectrumSamples, NBands = 40, fmin = 0.0, fmax = 8000):
+    """
+    Return a mel-spaced triangular filterbank
+    :param Fs: Audio sample rate
+    :param winSize: Window size of associated STFT
+    :param NSpectrumSamples: Number of samples in
+        assocated spectrogram (related to winSize)
+    :param NBands: Number of bands to use
+    :param fmin: Minimum frequency
+    :param fmax: Maximum frequency
+    :returns melfbank: An NBands x NSpectrumSamples matrix
+        with each filter per row
+    """
     melbounds = np.array([fmin, fmax])
     melbounds = 1125*np.log(1 + melbounds/700.0)
     mel = np.linspace(melbounds[0], melbounds[1], NBands+2)
@@ -105,15 +168,33 @@ def getMelFilterbank(Fs, winSize, NSpectrumSamples, NBands = 40, fmin = 0.0, fma
     melfbank = melfbank/np.sum(melfbank, 1)[:, None]
     return melfbank
 
-def getDCTBasis(NDCT, NFreqs):
-    B = np.zeros((NDCT, NFreqs))
-    B[0, :] = 1.0/np.sqrt(NFreqs)
-    fs = np.arange(1, 2*NFreqs, 2)*np.pi/(2.0*NFreqs)
-    for i in range(1, NDCT):
-        B[i, :] = np.cos(i*fs)*np.sqrt(2.0/NFreqs)
+def getDCTBasis(NDCT, N):
+    """
+    Return a DCT Type-III basis
+    :param NDCT: Number of DCT basis elements
+    :param N: Number of samples in signal
+    :returns B: An NDCT x N matrix of DCT basis
+    """
+    ts = np.arange(1, 2*N, 2)*np.pi/(2.0*N)
+    fs = np.arange(1, NDCT)
+    B = np.zeros((NDCT, N))
+    B[1::, :] = np.cos(fs[:, None]*ts[None, :])*np.sqrt(2.0/N)
+    B[0, :] = 1.0/np.sqrt(N)
     return B
 
 def getMFCCs(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC = 20, lifterexp = 0):
+    """
+    Get MFCC features, my own implementation
+    :param XAudio: A flat array of audio samples
+    :param Fs: Sample rate
+    :param winSize: Window size to use for STFT
+    :param hopSize: Hop size to use for STFT (default 512)
+    :param NBands: Number of mel bands to use
+    :param fmax: Maximum frequency
+    :param NMFCC: Number of MFCC coefficients to return
+    :param lifterexp: Lifter exponential
+    :return X: An (NMFCC x NWindows) array of MFCC samples
+    """
     f, t, S = spectrogram(XAudio, nperseg=winSize, noverlap=winSize-hopSize, window='blackman')
     M = getMelFilterbank(Fs, winSize, S.shape[0], NBands, fmax = fmax)
 
@@ -132,6 +213,19 @@ def getMFCCs(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC
     return X
 
 def getMFCCsLibrosa(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC = 20, lifterexp = 0):
+    """
+    Get MFCC features using librosa functions
+    :param XAudio: A flat array of audio samples
+    :param Fs: Sample rate
+    :param winSize: Window size to use for STFT
+    :param hopSize: Hop size to use for STFT (default 512)
+    :param NBands: Number of mel bands to use
+    :param fmax: Maximum frequency
+    :param NMFCC: Number of MFCC coefficients to return
+    :param lifterexp: Lifter exponential
+    :return X: An (NMFCC x NWindows) array of MFCC samples
+    """
+    print("Getting MFCCs Librosa...")
     import librosa
     S = librosa.core.stft(XAudio, winSize, hopSize)
     M = librosa.filters.mel(Fs, winSize, n_mels = NBands, fmax = fmax)
@@ -154,6 +248,12 @@ def getMFCCsLibrosa(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000
 
 #Norm-preserving square root (as in "chrompwr.m" by Ellis)
 def sqrtCompress(X):
+    """
+    Square root compress chroma bin values
+    :param X: An (NBins x NWindows) array of chroma
+    :returns Y: An (NBins x NWindows) sqrt normalized
+        chroma matrix
+    """
     Norms = np.sqrt(np.sum(X**2, 0))
     Norms[Norms == 0] = 1
     Y = (X/Norms[None, :])**0.5
@@ -163,10 +263,21 @@ def sqrtCompress(X):
     return Y
 
 def getHPCPEssentia(XAudio, Fs, winSize, hopSize, squareRoot = False, NChromaBins = 36):
+    """
+    Wrap around the essentia library to compute HPCP features
+    :param XAudio: A flat array of raw audio samples
+    :param Fs: Sample rate
+    :param winSize: Window size of each STFT window
+    :param hopSize: Hop size between STFT windows
+    :param squareRoot: Do square root compression?
+    :param NChromaBins: How many chroma bins (default 36)
+    :returns H: An (NChromaBins x NWindows) matrix of all
+        chroma windows
+    """
     import essentia
     from essentia import Pool, array
     import essentia.standard as ess
-    print("Getting HPCP Essentia")
+    print("Getting HPCP Essentia...")
     spectrum = ess.Spectrum()
     window = ess.Windowing(size=winSize, type='hann')
     spectralPeaks = ess.SpectralPeaks()
@@ -192,6 +303,15 @@ def getHPCPJVB(XAudio, Fs, winSize, hopSize, NChromaBins = 36):
 
 
 def getCensFeatures(XAudio, Fs, hopSize, squareRoot = False):
+    """
+    Wrap around librosa to compute CENs features
+    :param XAudio: A flat array of raw audio samples
+    :param Fs: Sample rate
+    :param hopSize: Hop size between STFT windows
+    :param squareRoot: Do square root compression?
+    :returns X: A (12 x NWindows) matrix of all
+        chroma windows
+    """
     import librosa
     X = librosa.feature.chroma_cens(y=XAudio, sr=Fs, hop_length = hopSize)
     if squareRoot:

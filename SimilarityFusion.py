@@ -17,6 +17,7 @@ def getW(D, K, Mu = 0.5):
     Return affinity matrix
     :param D: Self-similarity matrix
     :param K: Number of nearest neighbors
+    :param Mu: Nearest neighbor hyperparameter (default 0.5)
     """
     #W(i, j) = exp(-Dij^2/(mu*epsij))
     DSym = 0.5*(D + D.T)
@@ -33,6 +34,14 @@ def getW(D, K, Mu = 0.5):
     return W
 
 def getWCSM(CSMAB, k1, k2, Mu = 0.5):
+    """
+    Get a cross similarity matrix from a cross dissimilarity matrix
+    :param CSMAB: Cross-similarity matrix
+    :param k1: Number of neighbors across rows
+    :param k2: Number of neighbors down columns
+    :param Mu: Nearest neighbor hyperparameter
+    :returns W: Exponential weighted similarity matrix
+    """
     Neighbs1 = np.partition(CSMAB, k2, 1)[:, 0:k2]
     MeanDist1 = np.mean(Neighbs1, 1)
 
@@ -43,8 +52,16 @@ def getWCSM(CSMAB, k1, k2, Mu = 0.5):
     return np.exp(-CSMAB**2/(2*(Mu*Eps)**2))
 
 def setupWCSMSSM(WSSMA, WSSMB, WCSMAB):
-    #Setup matrix  [ SSMA  CSMAB ]
-    #              [ CSMBA SSMB ]
+    """
+    Get the following kernel cross-similarity matrix
+                [ WSSMA      WCSMAB ]
+                [ WCSMBA^T   WSSMB  ]
+    :param WSSMA: W matrix for upper left SSM part
+    :param WSSMB: W matrix for lower SSM part
+    :param WCSMAB: Cross-similarity part
+    :returns: Matrix with them all together
+    """
+
     M = WSSMA.shape[0]
     N = WSSMB.shape[0]
     W = np.zeros((N+M, N+M))
@@ -54,10 +71,19 @@ def setupWCSMSSM(WSSMA, WSSMB, WCSMAB):
     W[M::, M::] = WSSMB
     return W
 
-#Cross-Affinity Matrix.  Do a special weighting of nearest neighbors
-#so that there are a proportional number of similarity neighbors
-#and cross neighbors
 def getWCSMSSM(SSMA, SSMB, CSMAB, K, Mu = 0.5):
+    """
+    Cross-Affinity Matrix.  Do a special weighting of nearest neighbors
+    so that there are a proportional number of similarity neighbors
+    and cross neighbors
+    :param SSMA: MxM self-similarity matrix for signal A
+    :param SSMB: NxN self-similarity matrix for signal B
+    :param CSMAB: MxN cross-similarity matrix between A and B
+    :param K: Total number of nearest neighbors per row used
+        to tune exponential threshold
+    :param Mu: Hyperparameter for nearest neighbors
+    :return W: Parent W matrix
+    """
     M = SSMA.shape[0]
     N = SSMB.shape[0]
     #Split the neighbors evenly between the CSM
@@ -70,8 +96,15 @@ def getWCSMSSM(SSMA, SSMB, CSMAB, K, Mu = 0.5):
     WCSMAB = getWCSM(CSMAB, k1, k2, Mu)
     return setupWCSMSSM(WSSMA, WSSMB, WCSMAB)
 
-#Probability matrix
 def getP(W, diagRegularize = False):
+    """
+    Turn a similarity matrix into a proability matrix,
+    with each row sum normalized to 1
+    :param W: (MxM) Similarity matrix
+    :param diagRegularize: Whether or not to regularize
+    the diagonal of this matrix
+    :returns P: (MxM) Probability matrix
+    """
     if diagRegularize:
         P = 0.5*np.eye(W.shape[0])
         WNoDiag = np.array(W)
@@ -86,9 +119,15 @@ def getP(W, diagRegularize = False):
         P = W/RowSum[:, None]
         return P
 
-#Same thing as P but restricted to K nearest neighbors only
-#(**note that nearest neighbors here include the element itself)
 def getS(W, K):
+    """
+    Same thing as P but restricted to K nearest neighbors
+        only (using partitions for fast nearest neighbor sets)
+    (**note that nearest neighbors here include the element itself)
+    :param W: (MxM) similarity matrix
+    :param K: Number of neighbors to use per row
+    :returns S: (MxM) S matrix
+    """
     N = W.shape[0]
     J = np.argpartition(-W, K, 1)[:, 0:K]
     I = np.tile(np.arange(N)[:, None], (1, K))
@@ -103,13 +142,20 @@ def getS(W, K):
     return S
 
 
-#Ws: An array of NxN affinity matrices for N songs
-#K: Number of nearest neighbors
-#NIters: Number of iterations
-#reg: Identity matrix regularization parameter for self-similarity promotion
-#PlotNames: Strings describing different similarity measurements.
-#If this array is specified, an animation will be saved of the cross-diffusion process
 def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verboseTimes = False):
+    """
+    Perform similarity fusion between a set of exponentially
+    weighted similarity matrices
+    :param Ws: An array of NxN affinity matrices for N songs
+    :param K: Number of nearest neighbors
+    :param NIters: Number of iterations
+    :param reg: Identity matrix regularization parameter for
+        self-similarity promotion
+    :param PlotNames: Strings describing different similarity
+        measurements. If this array is specified, an
+        animation will be saved of the cross-diffusion process
+    :return D: A fused NxN similarity matrix
+    """
     tic = time.time()
     #Full probability matrices
     Ps = [getP(W) for W in Ws]
@@ -170,8 +216,11 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verbos
         FusedScores += Pt
     return FusedScores/N
 
-#Same as above, except scores is an array of NxN distance matrices
 def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
+    """
+    Do similarity fusion on a set of NxN distance matrices.
+    Parameters the same as doSimilarityFusionWs
+    """
     #Affinity matrices
     Ws = [getW(D, K) for D in Scores]
     return doSimilarityFusionWs(Ws, K, NIters, reg, PlotNames)

@@ -56,8 +56,8 @@ def makeISMIRPlot(index):
     filename1 = "covers32k/" + files1[index] + ".mp3"
     filename2 = "covers32k/" + files2[index] + ".mp3"
     fileprefix = "Covers80%i"%index
-    artist1 = getArtistName(files1[index])
-    artist2 = getArtistName(files2[index])
+    artist1 = getCovers80ArtistName(files1[index])
+    artist2 = getCovers80ArtistName(files2[index])
 
     #filename1 = 'MIREX_CSIBSF/GotToGiveItUp.mp3'
     #filename2 = 'MIREX_CSIBSF/BlurredLines.mp3'
