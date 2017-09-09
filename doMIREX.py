@@ -116,6 +116,7 @@ def precomputeFeatures(args):
         return
 
     (XAudio, Fs) = getAudioScipy(audiofilename)
+    print "Fs = ", Fs
     winSize = Fs/2
     XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
 
@@ -159,6 +160,24 @@ def precomputeFeatures(args):
     print("Elapsed Time: ", time.time() - tic)
     sio.savemat(filename, ret)
 
+
+def assembleBlocks(CSMTypes, res, ranges):
+    #Assemble all blocks together
+    Ds = {}
+    for i in range(len(ranges)):
+        [i1, i2, j1, j2] = ranges[i]
+        for Feature in CSMTypes.keys() + ['SNF']:
+            if not Feature in Ds:
+                Ds[Feature] = np.zeros((N, N))
+            Ds[Feature][i1:i2, j1:j2] = res[i][Feature]
+
+    #Fill in lower triangular part
+    for Feature in Ds.keys():
+        Ds[Feature] = Ds[Feature] + Ds[Feature].T
+        np.fill_diagonal(Ds[Feature], 0.5*np.diagonal(Ds[Feature], 0))
+
+    return Ds
+
 if __name__ == '__main__':
     print argv
     if len(argv) < 5:
@@ -199,6 +218,7 @@ if __name__ == '__main__':
     lifterexp = 0.6
     #TempoLevels = [60, 120, 180]
     TempoLevels = [0]
+    #TempoLevels = [120, 180]
     FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50, 'MFCCSamplesPerBlock':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
 
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
@@ -209,7 +229,7 @@ if __name__ == '__main__':
         NThreads = int(argv[5])
     parpool = PPool(NThreads)
 
-    #Step 1: Precompute beat intervals, MFCC, and HPCP Features for each song
+    #Precompute beat intervals, MFCC, and HPCP Features for each song
     NF = len(allFiles)
     args = zip(allFiles, [scratchDir]*NF, [hopSize]*NF, [lifterexp]*NF, [Kappa]*NF, [FeatureParams]*NF, [TempoLevels]*NF)
     """
@@ -237,22 +257,29 @@ if __name__ == '__main__':
         compareBlock((ranges[i], hopSize, Kappa, FeatureParams, CSMTypes, allFiles, scratchDir))
     """
 
-    #Assemble all blocks together
-    Ds = {}
-    for i in range(len(ranges)):
-        [i1, i2, j1, j2] = ranges[i]
-        for Feature in CSMTypes.keys() + ['SNF']:
-            if not Feature in Ds:
-                Ds[Feature] = np.zeros((N, N))
-            Ds[Feature][i1:i2, j1:j2] = res[i][Feature]
+    Ds = assembleBlocks(CSMTypes, res, ranges)
 
-    #Fill in lower triangular part
-    for Feature in Ds.keys():
-        Ds[Feature] = Ds[Feature] + Ds[Feature].T
-        np.fill_diagonal(Ds[Feature], 0.5*np.diagonal(Ds[Feature], 0))
-        plt.imshow(Ds[Feature], cmap = 'afmhot', interpolation = 'none')
-        plt.show()
+    #Perform late fusion
+    Scores = [1.0/Ds[F] for F in Ds.keys()]
+    Ds['Late'] = doSimilarityFusion(Scores, 20, 20, 1)
+    D = Ds['Late']
 
     #Save full distance matrix in case there's a problem
     #with the text output
     sio.savemat("%s/D.mat"%scratchDir, Ds)
+
+    #Save the results to a text file
+    fout = open(filenameOut, "w")
+    fout.write("Early+Late SNF Chris Tralie 2017\n")
+    for i in range(len(allFiles)):
+        f = allFiles[i]
+        fout.write("%i\t%s\n"%(i+1, f))
+    fout.write("Q/R")
+    for i in range(len(allFiles)):
+        fout.write("\t%i"%(i+1))
+    for i in range(len(queryFiles)):
+        idx = query2All[i]
+        fout.write("\n%i"%(idx+1))
+        for j in range(len(allFiles)):
+            fout.write("\t%g"%(D[idx, j]))
+    fout.close()
