@@ -93,10 +93,10 @@ def getCovers1000Ks():
     return Ks
 
 if __name__ == '__main__':
-    Scores = sio.loadmat("Covers1000Results.mat")
+    Scores = sio.loadmat("Covers1000D.mat")
     Ks = getCovers1000Ks()
     fout = open("Covers1000Results.html", "a")
-    for FeatureName in ['MFCCs', 'SSMs', 'Chromas', 'SNF']:
+    for FeatureName in ['MFCCs', 'SSMs', 'Chromas', 'SNF', 'Late']:
         S = Scores[FeatureName]
         S = np.maximum(S, S.T)
         getEvalStatistics(S, Ks, [1, 25, 50, 100], fout, FeatureName)
