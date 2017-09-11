@@ -256,12 +256,12 @@ if __name__ == '__main__':
         for tidx in range(len(TempoLevels)):
             PFeatures['beats%i'%tidx] = X['beats%i'%TempoLevels[tidx]].flatten()
             PFeatures['tempos%i'%tidx] = X['tempo%i'%TempoLevels[tidx]]
-        #Make a dummy filename for consistency since HPCPs/MFCCs/beats have already 
+        #Make a dummy filename for consistency since HPCPs/MFCCs/beats have already
         #been computed
         audiofilename = "%s.wav"%filePrefix
         precomputeBatchFeatures((audiofilename, scratchDir, hopSize, Kappa, CSMTypes, FeatureParams, TempoLevels, PFeatures))
     else:
         #Compute features in a block
-        allFiles = ["%s.wav" for s in AllSongs]
+        allFiles = ["%s.wav"%s for s in AllSongs]
         ranges = getBatchBlockRanges(1000, NPerBatch)
         compareBatchBlock((ranges[BatchNum], Kappa, CSMTypes, allFiles, scratchDir))
