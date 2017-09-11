@@ -77,7 +77,7 @@ def getAudioFeatures(hopSize, filename, mfccfilename, censfilename, hpcpfilename
 
 def getAudioFilename(filePrefix):
     audiofile = glob.glob("%s*"%filePrefix)
-    filename = s
+    filename = filePrefix
     for f in audiofile:
         if not f[-3::] == "txt":
             filename = f
@@ -220,9 +220,6 @@ if __name__ == '__main__2':
         fout.write("%s\n"%getAudioFilename(s))
     fout.close()
 
-if __name__ == '__main__2':
-
-
 if __name__ == '__main__':
     if len(argv) < 7:
         print argv
@@ -259,11 +256,10 @@ if __name__ == '__main__':
         for tidx in range(len(TempoLevels)):
             PFeatures['beats%i'%tidx] = X['beats%i'%TempoLevels[tidx]].flatten()
             PFeatures['tempos%i'%tidx] = X['tempo%i'%TempoLevels[tidx]]
-        #Create a dummy filename so things are consistent
-        audiofilename = "%s.wav"%filePrefix
+        audiofilename = getAudioFilename(filePrefix)
         precomputeBatchFeatures((audiofilename, scratchDir, hopSize, Kappa, CSMTypes, FeatureParams, TempoLevels, PFeatures))
     else:
         #Compute features in a block
-        allFiles = ["%s.wav"%s for s in AllSongs]
+        allFiles = [getAudioFilename(s) for s in AllSongs]
         ranges = getBatchBlockRanges(1000, NPerBatch)
         compareBatchBlock((ranges[BatchNum], Kappa, CSMTypes, allFiles, scratchDir))
