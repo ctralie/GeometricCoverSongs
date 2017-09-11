@@ -170,39 +170,50 @@ def precomputeBatchFeatures(args):
         return
     print("Computing features for %s..."%audiofilename)
 
-    (XAudio, Fs) = getAudio(audiofilename)
-    print "Fs = ", Fs
-    winSize = Fs/2
+    Fs = 22050
+    XAudio = np.array([])
+    lifterexp = 0.6
     if 'XMFCC' in PFeatures:
         XMFCC = PFeatures['XMFCC']
     else:
+        if XAudio.size == 0:
+            (XAudio, Fs) = getAudio(audiofilename)
+            print "Fs = ", Fs
         NMFCC = 20
         if 'NMFCC' in FeatureParams:
             NMFCC = FeatureParams['NMFCC']
         lifterexp = 0.6
         if 'lifterexp' in FeatureParams:
             lifterexp = FeatureParams['lifterexp']
+        winSize = Fs/2
         XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
 
     if 'XChroma' in PFeatures:
         XChroma = PFeatures['XChroma']
     else:
+        if XAudio.size == 0:
+            (XAudio, Fs) = getAudio(audiofilename)
+            print "Fs = ", Fs
         XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
 
     #Computed blocked features at different tempo levels
+    winSize = Fs/2
     ret = {'hopSize':hopSize, 'winSize':winSize, 'lifterexp':lifterexp}
-    if 'tempos' in PFeatures:
+    tempos = []
+    if 'NTempos' in PFeatures:
         #If tempos have been precomputed, load them in
-        tempos = PFeatures['tempos']
-        for i in range(len(tempos)):
-            ret['tempos%i'%i] = Features['tempos%i'%i]
-            ret['beats%i'%i] = Features['beats%i'%i]
+        NTempos = PFeatures['NTempos']
+        for i in range(NTempos):
+            ret['tempos%i'%i] = PFeatures['tempos%i'%i]
+            ret['beats%i'%i] = PFeatures['beats%i'%i]
+            tempos.append(ret['tempos%i'%i])
     else:
         #Otherwise, compute tempos / beat intervals
         tempos = getBatchBeats(TempoLevels, audiofilename, XAudio, Fs, hopSize, ret)
     for tidx in range(len(tempos)):
         tempo = ret['tempos%i'%tidx]
         beats = ret['beats%i'%tidx]
+        print "XMFCC.shape = ", XMFCC.shape
         (Feats, O) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams), XMFCC, XChroma)
         ret['ChromaMean%i'%tidx] = O['ChromaMean']
 
@@ -246,6 +257,15 @@ def assembleBatchBlocks(FeatureTypes, res, ranges, N):
     return Ds
 
 def getBatchBlockRanges(N, NPerBlock):
+    """
+    Get the row and column index ranges of all blocks in an
+    all pairs similarity experiment between N songs
+    :param N: The N songs in the experiment for an NxN matrix
+    :param NPerBlock: The number of elements in a square block
+    :returns ranges: An array of ranges [[starti, endi, startj, endj]]
+        comprising each block.  Clipped to boundaries of NxN
+        where appropriate.
+    """
     K = int(np.ceil(N/float(NPerBlock)))
     ranges = []
     for i in range(K):

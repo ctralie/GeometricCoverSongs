@@ -1,3 +1,7 @@
+"""
+Programmer: Chris Tralie
+Purpose: Code for doing experiments on covers 1000 dataset
+"""
 import numpy as np
 import sys
 import os
@@ -6,11 +10,26 @@ import scipy.io as sio
 import subprocess
 import time
 from sys import exit, argv
+from multiprocessing import Pool as PPool
 from CSMSSMTools import *
 from BlockWindowFeatures import *
+from BatchCollection import *
 
 def getAudioFeatures(hopSize, filename, mfccfilename, censfilename, hpcpfilename, beatsfilename):
-    from MusicFeatures import getAudio, getMFCCs, getCensFeatures, getHPCPEssentia, getBeats
+    """
+    Precompute and save MFCC, CENS, HPCP, and beats, before
+    any blocked features are computed
+    NOTE: Features saved at 32 bit precision to save space
+    :param hopSize: STFT hop size for features
+    :param filename: Path to audio file
+    :param mfccfilename: Path to save MFCC features
+    :param censfilename: Path to save CENS features
+    :param hpcpfilename: Path to save HPCP features
+    :param beatsfilename: Path to save beats (NOTE: 3 biases
+        with dynamic programming, as well as a single madmom
+        estimate, are computed)
+    """
+    from MusicFeatures import getAudio, getMFCCsLibrosa, getCensFeatures, getHPCPEssentia, getBeats
     if os.path.exists(mfccfilename) and os.path.exists(censfilename) and os.path.exists(hpcpfilename) and os.path.exists(beatsfilename):
         print "Skipping %s"%filename
         return
@@ -24,7 +43,7 @@ def getAudioFeatures(hopSize, filename, mfccfilename, censfilename, hpcpfilename
         print "Skipping MFCCs"
     else:
         print "Computing MFCCs..."
-        XMFCC = getMFCCs(XAudio, Fs, winSize, hopSize, lifterexp = 0.6, NMFCC = 20)
+        XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = 0.6, NMFCC = 20)
         sio.savemat(mfccfilename, {"XMFCC":XMFCC, "winSize":winSize, "hopSize":hopSize, "Fs":Fs})
 
     #Compute CENs
@@ -50,23 +69,34 @@ def getAudioFeatures(hopSize, filename, mfccfilename, censfilename, hpcpfilename
     else:
         beatsDict = {'Fs':Fs, 'hopSize':hopSize}
         print "Computing beats..."
-        for TempoBias in [60, 120, 180]:
-            (tempo, beats) = getBeats(XAudio, Fs, TempoBias, hopSize)
+        for TempoBias in [0, 60, 120, 180]:
+            (tempo, beats) = getBeats(XAudio, Fs, TempoBias, hopSize, filename)
             beatsDict["beats%i"%TempoBias] = beats
             beatsDict["tempo%i"%TempoBias] = tempo
         sio.savemat(beatsfilename, beatsDict)
 
-def doCovers1000Example(CliqueNum, hopSize):
+def getAudioFilename(filePrefix):
+    audiofile = glob.glob("%s*"%filePrefix)
+    filename = s
+    for f in audiofile:
+        if not f[-3::] == "txt":
+            filename = f
+            break
+    return filename
+
+def computeCovers100CliqueFeatures(args):
+    """
+    Compute the MFCC, CENS, HPCP, and beats for all songs
+    in a clique.  Function is setup for parallel processing
+    :param (CliqueNum, hopSize): Number of the clique, hopSize
+        to use in STFT
+    """
+    (CliqueNum, hopSize) = args
     songs = glob.glob("Covers1000/%i/*.txt"%CliqueNum)
     for i in range(len(songs)):
         s = songs[i]
         num = int(os.path.split(s)[-1][0:-4])
-        audiofile = glob.glob("Covers1000/%i/%i.*"%(CliqueNum, num))
-        filename = s
-        for f in audiofile:
-            if not f[-3::] == "txt":
-                filename = f
-                break
+        filename = getAudioFilename(s[0:-4])
 
         mfccfilename = "Covers1000/%i/%i_MFCC.mat"%(CliqueNum, num)
         censfilename = "Covers1000/%i/%i_CENS.mat"%(CliqueNum, num)
@@ -76,6 +106,11 @@ def doCovers1000Example(CliqueNum, hopSize):
         getAudioFeatures(hopSize, filename, mfccfilename, censfilename, hpcpfilename, beatsfilename)
 
 def getZappaFeatures(hopSize):
+    """
+    Get the MFCC, CENS, HPCP, and beats for all 8 Zappa
+    covers
+    :param hopSize: STFT hop size between windows
+    """
     for i in range(1, 9):
         filename = "Covers1000/Zappa/%i.mp3"%i
         mfccfilename = "Covers1000/Zappa/%i_MFCC.mat"%i
@@ -84,23 +119,29 @@ def getZappaFeatures(hopSize):
         beatsfilename = "Covers1000/Zappa/%i_Beats.mat"%i
         getAudioFeatures(hopSize, filename, mfccfilename, censfilename, hpcpfilename, beatsfilename)
 
-def precomputeFeatures(hopSize):
+def precomputeCovers1000Features(hopSize, NThreads = 8):
     """
     Precompute all of the MFCC and HPCP features for the Covers1000 dataset
     """
+    parpool = PPool(NThreads)
+    cliques = range(1, 396)
+    args = zip(cliques, [hopSize]*len(cliques))
+    parpool.map(computeCovers100CliqueFeatures, args)
+    """
     for i in range(1, 396):
-        doCovers1000Example(i, hopSize)
-    getZappaFeatures(hopSize)
+        computeCovers100CliqueFeatures((i, hopSize))
+    """
 
 #Get the list of songs
-def getSongPrefixes():
+def getSongPrefixes(verbose = False):
     AllSongs = []
     for i in range(1, 396):
         songs = glob.glob("Covers1000/%i/*.txt"%i)
         songs = sorted([s[0:-4] for s in songs])
-        print songs
-        print sorted(songs)
-        print "\n\n"
+        if verbose:
+            print songs
+            print sorted(songs)
+            print "\n\n"
         AllSongs += songs
     return AllSongs
 
@@ -126,49 +167,14 @@ def getCovers1000Features(fileprefix, FeatureParams, TempoBiases = [60, 120, 180
         Features.append((Features1, O1))
     return Features
 
-def compareSongs1000(Features1List, Features2List, BeatsPerBlock, Kappa, FeatureParams, K = 20, NIters = 3):
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
-    #Do each feature individually
-    Results = {'SNF':0}
-    (Features1, O1) = Features1List[0]
-    for FeatureName in Features1:
-        Results[FeatureName] = 0
-    #Compare all tempo levels
-    for i in range(len(Features1List)):
-        (Features1, O1) = Features1List[i]
-        for j in range(len(Features2List)):
-            (Features2, O2) = Features2List[j]
-            for FeatureName in Features1:
-                Results[FeatureName] =  max(Results[FeatureName], getCSMSmithWatermanScores(Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName], False))
-
-            #Do cross-similarity fusion
-            res = getCSMSmithWatermanScoresEarlyFusionFull(Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes, False)['score']
-            Results['SNF'] = max(res, Results['SNF'])
-    return Results
-
-def mergeBatches(start, end):
-    NSongs = end - start + 1
-    Batches = glob.glob("Results/Results_*.mat")
-    Results = {}
-    for batch in Batches:
-        r = sio.loadmat(batch)
-        s1 = r['s1']
-        s2 = r['s2']
-        BatchSize = r['BatchSize']
-        r.pop("s1")
-        r.pop("s2")
-        r.pop("BatchSize")
-        r.pop("__header__")
-        r.pop("__globals__")
-        r.pop("__version__")
-        for F in r:
-            if not F in Results:
-                print F
-                Results[F] = np.zeros((NSongs, NSongs))
-            Results[F][s1:s1+BatchSize, s2:s2+BatchSize] = r[F]
-    sio.savemat("Covers1000Results.mat", Results)
-
 def doZappaComparisons(Kappa, BeatsPerBlock):
+    """
+    Compare the 8 zappa covers to all songs in the covers
+    1000 dataset, and save the results to "ResultsZappa.mat"
+    :param Kappa: Nearest neighbor cutoff for SNF and
+        binary CSMs
+    :param BeatsPerBlock: BeatsPerBlock for HPCPs/MFCCs
+    """
     FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':BeatsPerBlock, 'ChromasPerBlock':40}
 
     songs1 = ["Covers1000/Zappa/%i"%i for i in range(1, 9)]
@@ -197,64 +203,67 @@ def doZappaComparisons(Kappa, BeatsPerBlock):
         sio.savemat("ResultsZappa.mat", AllResults)
         print "Batch %i Elapsed Time: "%batch, time.time() - tic
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     doZappaComparisons(0.1, 20)
 
 if __name__ == '__main__2':
-    mergeBatches(0, 999)
+    hopSize = 512
+    #Compute features for 1000 songs
+    precomputeCovers1000Features(hopSize)
+    #Compute Zappa Features
+    getZappaFeatures(hopSize)
+
+    #Make a text file with all of the audio filenames
+    AllSongs = getSongPrefixes()
+    fout = open("covers1000collection.txt", "w")
+    for s in AllSongs:
+        fout.write("%s\n"%getAudioFilename(s))
+    fout.close()
 
 if __name__ == '__main__2':
+
+
+if __name__ == '__main__':
     if len(argv) < 7:
         print argv
-        print "Usage: python covers1000.py <start> <end> <BatchSize> <BatchNum> <Kappa> <BeatsPerBlock>"
+        print "Usage: python covers1000.py <doFeatures> <NPerBatch> <BatchNum> <Kappa> <BeatsPerBlock> <doMadmom>"
         exit(0)
     AllSongs = getSongPrefixes()
-    [start, end, BatchSize, BatchNum] = [int(a) for a in argv[1:5]]
-    Kappa = float(argv[5])
-    BeatsPerBlock = int(argv[6])
+    [doFeatures, NPerBatch, BatchNum] = [int(a) for a in argv[1:4]]
+    Kappa = float(argv[4])
+    BeatsPerBlock = int(argv[5])
+    doMadmom = int(argv[6])
+    hopSize = 512
 
-    FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':BeatsPerBlock, 'ChromasPerBlock':40}
+    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
 
-    songs = AllSongs[start:end+1]
-    N = len(songs)/BatchSize
-    [I, J] = np.meshgrid(np.arange(N), np.arange(N))
-    [I, J] = [I.flatten(), J.flatten()]
-    s1 = I[BatchNum]*BatchSize
-    s2 = J[BatchNum]*BatchSize
-    songs1 = AllSongs[s1:s1+BatchSize]
-    songs2 = AllSongs[s2:s2+BatchSize]
+    FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'DPixels':50, 'MFCCSamplesPerBlock':50, 'ChromaBeatsPerBlock':BeatsPerBlock, 'ChromasPerBlock':BeatsPerBlock*2, 'NMFCC':20, 'lifterexp':0.6}
 
-    AllFeatures1 = []
-    AllFeatures2 = []
-    for i in range(len(songs1)):
-        print "Getting features 1 %i of %i"%(i, len(songs1))
-        AllFeatures1.append(getCovers1000Features(songs1[i], FeatureParams))
-    for j in range(len(songs2)):
-        print "Getting features 2 %i of %i"%(j, len(songs2))
-        AllFeatures2.append(getCovers1000Features(songs2[j], FeatureParams))
+    scratchDir = "Covers1000Scratch"
 
-    AllResults = {}
-    tic = time.time()
-    for i in range(len(songs1)):
-        print "Comparing %i of %i"%(i+1, len(songs1))
-        for j in range(len(songs2)):
-            Results = compareSongs1000(AllFeatures1[i], AllFeatures2[j], BeatsPerBlock, Kappa, FeatureParams)
-            for F in Results:
-                if not F in AllResults:
-                    AllResults[F] = np.zeros((len(songs1), len(songs2)))
-                AllResults[F][i, j] = Results[F]
-    print "Elapsed Time: ", time.time() - tic
-    AllResults['s1'] = s1
-    AllResults['s2'] = s2
-    AllResults['BatchSize'] = BatchSize
-    sio.savemat("Results_%i.mat"%BatchNum, AllResults)
+    TempoLevels = [60, 120, 180]
+    if doMadmom == 1:
+        TempoLevels = [0]
 
-if __name__ == '__main__2':
-    FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
-    BeatsPerBlock = 20
-    Kappa = 0.1
-    AllSongs = getSongPrefixes()
-
-    (Features1, O1) = getCovers1000Features(AllSongs[0], FeatureParams, [120])
-    (Features2, O2) = getCovers1000Features(AllSongs[1], FeatureParams, [120])
-    print compareSongs1000(Features1, O1, Features2, O2, BeatsPerBlock, Kappa, FeatureParams)
+    if doFeatures == 1:
+        #If precomputing block features, ignore NPerBatch
+        #And treat the batchnum as a song index
+        filePrefix = AllSongs[BatchNum]
+        print "filePrefix = ", filePrefix
+        X = sio.loadmat("%s_MFCC.mat"%filePrefix)
+        XMFCC = X['XMFCC']
+        X = sio.loadmat("%s_HPCP.mat"%filePrefix)
+        XHPCP = X['XHPCP']
+        PFeatures = {'XMFCC':XMFCC, 'XChroma':XHPCP, 'NTempos':len(TempoLevels)}
+        X = sio.loadmat("%s_Beats.mat"%filePrefix)
+        for tidx in range(len(TempoLevels)):
+            PFeatures['beats%i'%tidx] = X['beats%i'%TempoLevels[tidx]].flatten()
+            PFeatures['tempos%i'%tidx] = X['tempo%i'%TempoLevels[tidx]]
+        #Create a dummy filename so things are consistent
+        audiofilename = "%s.wav"%filePrefix
+        precomputeBatchFeatures((audiofilename, scratchDir, hopSize, Kappa, CSMTypes, FeatureParams, TempoLevels, PFeatures))
+    else:
+        #Compute features in a block
+        allFiles = ["%s.wav"%s for s in AllSongs]
+        ranges = getBatchBlockRanges(1000, NPerBatch)
+        compareBatchBlock((ranges[BatchNum], Kappa, CSMTypes, allFiles, scratchDir))

@@ -238,11 +238,11 @@ if __name__ == '__main__':
     for i in range(len(Scores)):
         #Smith waterman returns larger scores for more similar songs,
         #but we want the graph kernel to be closer to 0 for similar objects
-        #getCovers80EvalStatistics(Scores[i], 160, 80, [1, 10], fout, PlotNames[i])
+        #getCovers80EvalStatistics(Scores[i], [1, 10], fout, PlotNames[i])
         Scores[i] = 1.0/Scores[i]
     W = 20 #Number of nearest neighbors to take in the network
     FusedScores = doSimilarityFusion(Scores, W, 20, 1, PlotNames)
-    getCovers80EvalStatistics(FusedScores, 160, 80,  [1, 10], fout, name = "Late")
+    getCovers80EvalStatistics(FusedScores, [1, 10], fout, name = "Late")
     fout.close()
 
 if __name__ == '__main__2':

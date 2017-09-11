@@ -130,17 +130,9 @@ if __name__ == '__main__':
         print "artist1 = ", artist1
         songName = getCovers80SongName(files1[index])
 
-        #FeatureParams = {'DPixels':200, 'NCurv':400, 'NJump':400, 'NTors':400, 'D2Samples':50, 'CurvSigma':20, 'D2Samples':40, 'MFCCSamplesPerBlock':200, 'GeodesicDelta':10, 'NGeodesic':400, 'lifterexp':0.6, 'MFCCBeatsPerBlock':12, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
-        #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'DPixels':200, 'MFCCBeatsPerBlock':20}
-
         CurvSigmas = [10, 60]
         FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
-        #FeatureParams = {'ChromaBeatsPerBlock':20, 'ChromasPerBlock':160, 'ChromasFTM2D':True}
 
-        CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI', 'ChromasFTM2D':'Euclidean'}
-        for sigma in CurvSigmas:
-            CSMTypes['Jumps%g'%sigma] = 'Euclidean'
-            CSMTypes['Curvs%g'%sigma] = 'Euclidean'
-            CSMTypes['Tors%g'%sigma] = 'Euclidean'
+        CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
 
         compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, artist1, artist2)

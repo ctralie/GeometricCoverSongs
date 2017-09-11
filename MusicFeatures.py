@@ -210,6 +210,7 @@ def getMFCCs(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC
     coeffs = np.arange(NMFCC)**lifterexp
     coeffs[0] = 1
     X = coeffs[:, None]*X
+    X = np.array(X, dtype = np.float32)
     return X
 
 def getMFCCsLibrosa(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC = 20, lifterexp = 0):
@@ -243,6 +244,7 @@ def getMFCCsLibrosa(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000
     coeffs = np.arange(NMFCC)**lifterexp
     coeffs[0] = 1
     X = coeffs[:, None]*X
+    X = np.array(X, dtype = np.float32)
     return X
 
 
@@ -316,6 +318,7 @@ def getCensFeatures(XAudio, Fs, hopSize, squareRoot = False):
     X = librosa.feature.chroma_cens(y=XAudio, sr=Fs, hop_length = hopSize)
     if squareRoot:
         X = sqrtCompress(X)
+    X = np.array(X, dtype = np.float32)
     return X
 
 

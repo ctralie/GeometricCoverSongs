@@ -1,6 +1,7 @@
 """
 Programmer: Chris Tralie
-Purpose: To run experiments on the Covers80 dataset
+Purpose: To run experiments on the Covers80 dataset and
+report the results
 """
 import numpy as np
 import scipy.io as sio
@@ -57,7 +58,7 @@ if __name__ == '__main__':
     #Setup parallel pool
     NThreads = 8
     parpool = PPool(NThreads)
-    
+
     #Precompute beat intervals, MFCC, and HPCP Features for each song
     NF = len(allFiles)
     args = zip(allFiles, [scratchDir]*NF, [hopSize]*NF, [Kappa]*NF, [CSMTypes]*NF, [FeatureParams]*NF, [TempoLevels]*NF, [{}]*NF)
@@ -74,14 +75,14 @@ if __name__ == '__main__':
     #Perform late fusion
     Scores = [1.0/Ds[F] for F in Ds.keys()]
     Ds['Late'] = doSimilarityFusion(Scores, 20, 20, 1)
-    D = Ds['Late']
-    
+
     #Write results to disk
+    sio.savemat("%s.mat"%filePrefix, Ds)
     fout = open("Covers80Results_%g_%s.html"%(Kappa, BeatsPerBlock), "w")
     fout.write("""
     <table border = "1" cellpadding = "10">
     <tr><td><h3>Name</h3></td><td><h3>Mean Rank</h3></td><td><h3>Mean Reciprocal Rank</h3></td><td><h3>Median #Rank</h3></td><td><h3>Top-01</h3></td><td><h3>Top-10</h3></td><td><h3>Covers80</h3></td></tr>""")
     for FeatureName in ['MFCCs', 'SSMs', 'Chromas', 'SNF', 'Late']:
-        S = Scores[FeatureName]
-        getCovers80EvalStatistics(S, 160, 80,  [1, 10], fout, name = FeatureName)
+        S = Ds[FeatureName]
+        getCovers80EvalStatistics(S,  [1, 10], fout, name = FeatureName)
     fout.close()

@@ -1,10 +1,24 @@
-#Evaluation Statistics / Results Web Page Generation
+"""
+Programmer: Chris Tralie
+Purpose: Classification Evaluation Statistics / Results Web Page Generation
+"""
 import numpy as np
 import scipy.io as sio
 
-def getCovers80EvalStatistics(ScoresParam, N, NSongs, topsidx, fout, name = "default"):
+def getCovers80EvalStatistics(ScoresParam, topsidx, fout, name = "default"):
+    """
+    Compute MR, MRR, MAP, and Median Rank for the covers80 dataset
+    :param ScoresParam: A 160x160 array holding all pairwise
+    scores, where the first 80 songs are in the the first 80 rows
+    and the second 80 songs are in the last 80 rows
+    :param topsidx: An array of cutoffs for reporting songs in the
+        top K indices
+    :param fout: A file handle to an HTML file holding the results
+    :param name: A name to use for this test in the HTML file
+    """
+    NSongs = 80
+    N = NSongs*2
     Scores = np.array(ScoresParam)
-    #Compute MR, MRR, MAP, and Median Rank
     #Fill diagonal with -infinity to exclude song from comparison with self
     np.fill_diagonal(Scores, -np.inf)
     idx = np.argsort(-Scores, 1) #Sort row by row in descending order of score
