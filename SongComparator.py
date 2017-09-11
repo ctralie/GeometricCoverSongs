@@ -91,17 +91,17 @@ def compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa
 
 def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, song1name = 'Song 1', song2name = 'Song 2'):
     from MusicFeatures import getAudio, getBeats
-    print "Getting features for %s..."%filename1
+    print("Getting features for %s..."%filename1)
     (XAudio, Fs) = getAudio(filename1)
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize, filename2)
     (Features1, O1) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
 
-    print "Getting features for %s..."%filename2
+    print("Getting features for %s..."%filename2)
     (XAudio, Fs) = getAudio(filename2)
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias2, hopSize, filename2)
     (Features2, O2) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
 
-    print "Feature Types: ", Features1.keys()
+    print("Feature Types: ", Features1.keys())
 
     Results = {'filename1':filename1, 'filename2':filename2, 'TempoBias1':TempoBias1, 'TempoBias2':TempoBias2, 'hopSize':hopSize, 'FeatureParams':FeatureParams, 'CSMTypes':CSMTypes, 'Kappa':Kappa}
 
@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
         artist1 = getCovers80ArtistName(files1[index])
         artist2 = getCovers80ArtistName(files2[index])
-        print "artist1 = ", artist1
+        print("artist1 = %s"%artist1)
         songName = getCovers80SongName(files1[index])
 
         CurvSigmas = [10, 60]

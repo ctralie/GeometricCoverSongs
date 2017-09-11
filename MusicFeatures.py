@@ -348,13 +348,11 @@ if __name__ == '__main__':
 
     H = getHPCPEssentia(XAudio, Fs, winSize, hopSize, NChromaBins = NChromaBins)
     H2 = getHPCPJVB(XAudio, Fs, winSize, hopSize, NChromaBins = NChromaBins)
-    print H2.shape
 
     Cens = getCensFeatures(XAudio, Fs, hopSize, squareRoot = True)
     #Cens = librosa.feature.chroma_cens(y=XAudio, sr=Fs)
     #N = int(np.round(len(XAudio)/Fs))*3
     #Cens = scipy.misc.imresize(Cens, (12, N))
-    #print Cens.shape
 
     plt.subplot(311)
     plt.imshow(H, cmap = 'afmhot', interpolation = 'none', aspect = 'auto')

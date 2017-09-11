@@ -69,12 +69,12 @@ def makeISMIRPlot(index):
 
     featuresfile = "%sFeatures.txt"%filename1
     if not os.path.exists(featuresfile):
-        print "Getting features for %s..."%filename1
+        print("Getting features for %s..."%filename1)
         (XAudio, Fs) = getAudio(filename1)
         (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize)
         (Features1, O1) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
 
-        print "Getting features for %s..."%filename2
+        print("Getting features for %s..."%filename2)
         (XAudio, Fs) = getAudio(filename2)
         (tempo, beats) = getBeats(XAudio, Fs, TempoBias2, hopSize)
         (Features2, O2) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))

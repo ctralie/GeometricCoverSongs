@@ -28,6 +28,26 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL, 0, NULL}
 };
 
+
+
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef Alignments =
+{
+    PyModuleDef_HEAD_INIT,
+    "SequenceAlignment", /* name of module */
+    module_docstring, /* module documentation, may be NULL */
+    -1,   /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables. */
+    module_methods
+};
+
+/* Initialize the module */
+PyMODINIT_FUNC PyInit__SequenceAlignment(void)
+{
+    /* Load `numpy` functionality. */
+    import_array();
+    return PyModule_Create(&Alignments);
+}
+#else
 /* Initialize the module */
 PyMODINIT_FUNC init_SequenceAlignment(void)
 {
@@ -38,6 +58,8 @@ PyMODINIT_FUNC init_SequenceAlignment(void)
     /* Load `numpy` functionality. */
     import_array();
 }
+#endif
+
 
 static PyObject *SequenceAlignment_swalignimp(PyObject *self, PyObject *args)
 {

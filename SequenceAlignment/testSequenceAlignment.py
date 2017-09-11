@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 import time
 import sys
-sys.path.append("../")
-from CSMSSMTools import *
 
 def compareTimes():
     """
@@ -19,12 +17,12 @@ def compareTimes():
     start = time.time()
     ans = SAC.swalignimpconstrained(D)
     end = time.time()
-    print "Time elapsed C: %g seconds, ans = %g"%(end-start, ans)
+    print("Time elapsed C: %g seconds, ans = %g"%(end-start, ans))
 
     start = time.time()
     ans = SA.swalignimpconstrained(D)[0]
     end = time.time()
-    print "Time elapsed raw python: %g seconds, ans = %g"%(end - start, ans)
+    print("Time elapsed raw python: %g seconds, ans = %g"%(end - start, ans))
 
 def testBacktrace():
     np.random.seed(100)
@@ -41,7 +39,7 @@ def testBacktrace():
     CSM = CSMToBinaryMutual(CSM, 0.1)
     (maxD, D, path) = SA.SWBacktrace(CSM)
     sio.savemat("D.mat", {"D":D})
-    print "maxD = ", maxD
+    print("maxD = %g"%maxD)
 
     plt.subplot(221)
     plt.plot(X1[:, 0], X1[:, 1])
@@ -58,5 +56,5 @@ def testBacktrace():
     plt.show()
 
 if __name__ == "__main__":
-    #compareTimes()
-    testBacktrace()
+    compareTimes()
+    #testBacktrace()

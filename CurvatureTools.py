@@ -112,7 +112,7 @@ class CSSAnimator(animation.FuncAnimation):
         self.save("out.mp4", writer = writer)
 
     def _draw_frame(self, i):
-        print i
+        print("%i"%i)
 
         Curvs = getCurvVectors(self.X, 2, self.sigmas[i], loop = self.loop)
         Crossings = getZeroCrossings(Curvs)

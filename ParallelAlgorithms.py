@@ -102,7 +102,7 @@ def testBitonicSort(N, doPlot = False):
     tic = time.time()
     XG = gpuarray.to_gpu(X)
     toc = time.time()
-    print "Elapsed memcopy time: ", toc-tic
+    print("Elapsed memcopy time: %g"%(toc-tic))
 
     tic = time.time()
     bitonicSort(XG)
@@ -164,8 +164,8 @@ def testCSMTimes():
     #plt.plot(XSqr.get(), np.sum(X**2, 1), '.')
     #plt.show()
 
-    print "CPUTime: ", CPUTime
-    print "GPUTime: ", GPUTime
+    print("CPUTime: %g"%CPUTime)
+    print("GPUTime: %g"%GPUTime)
 
 
 
@@ -182,7 +182,7 @@ if __name__ == '__main__2':
     np.random.seed(100)
     initParallelAlgorithms()
     t = testCSM(1000, 1000, 60, doPlot = False)
-    print "Return time: ", time.time() - t
+    print("Return time: %g"%(time.time() - t))
 
 if __name__ == '__main__':
     initParallelAlgorithms()

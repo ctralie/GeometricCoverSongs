@@ -166,7 +166,7 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verbos
     Pts = [np.array(P) for P in Ps]
     nextPts = [np.zeros(P.shape) for P in Pts]
     if verboseTimes:
-        print "Time getting Ss and Ps: ", time.time() - tic
+        print("Time getting Ss and Ps: %g"%(time.time() - tic))
 
     N = len(Pts)
     AllTimes = []
@@ -196,7 +196,7 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verbos
             #tic = time.time()
             #nextPts[i] = SsD[i].dot(nextPts[i].dot(SsD[i].T))
             #toc = time.time()
-            #print toc - tic, " ",
+            #print(toc - tic, " ")
 
             #Need S*P*S^T, but have to multiply sparse matrix on the left
             tic = time.time()
@@ -210,7 +210,7 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verbos
 
         Pts = nextPts
     if verboseTimes:
-        print "Total Time multiplying: ", np.sum(np.array(AllTimes))
+        print("Total Time multiplying: %g"%np.sum(np.array(AllTimes)))
     FusedScores = np.zeros(Pts[0].shape)
     for Pt in Pts:
         FusedScores += Pt
@@ -253,7 +253,7 @@ if __name__ == '__main__2':
     Ks = getCovers1000Ks()
     PlotNames = ['Chromas', 'SSMs', 'MFCCs']
     Scores = [X[s] for s in PlotNames]
-    print Scores
+    print(Scores)
     N = Scores[0].shape[0]
     fout = open("Covers1000Results.html", "a")
     fout.write("""

@@ -65,7 +65,7 @@ def loadSHSChromas(IDs):
             break
         ID = int(ID)
         if ID%1000 == 0:
-            print "Loaded chromas for %i songs..."%ID
+            print("Loaded chromas for %i songs..."%ID)
         if not ID in IDs:
             fin.readline()
             continue
@@ -90,7 +90,7 @@ def loadSHSMFCCs(IDs):
             break
         ID = IDDict[ID]
         if count%1000 == 0:
-            print "Loaded mfccs for %i songs..."%count
+            print("Loaded mfccs for %i songs..."%count)
         if not ID in IDs:
             fin.readline()
             count += 1
@@ -154,7 +154,7 @@ def getSHSBlockFeatures(c, m, BeatsPerBlock):
     NBlocks = N - BeatsPerBlock + 1
     DPixels = BeatsPerBlock*(BeatsPerBlock-1)/2
 
-    print "N = %i, NBlocks = %i, BeatsPerBlock = %i"%(N, NBlocks, BeatsPerBlock)
+    print("N = %i, NBlocks = %i, BeatsPerBlock = %i"%(N, NBlocks, BeatsPerBlock))
 
     cRet = np.zeros((NBlocks, 12*BeatsPerBlock))
     mRet = np.zeros((NBlocks, 12*BeatsPerBlock))
@@ -196,17 +196,17 @@ def doSHSExperiment(IDs, Ks, CSMTypes, BeatsPerBlock, Kappa):
         (BlockFeatures, OtherFeatures) = getSHSBlockFeatures(chromas[IDs[i]], mfccs[IDs[i]], BeatsPerBlock)
         AllFeatures.append(BlockFeatures)
         AllOtherFeatures.append(OtherFeatures)
-    print "Elapsed time blocking: ", time.time() - tic
+    print("Elapsed time blocking: %g"%(time.time() - tic))
 
     Results = {}
     for FeatureName in AllFeatures[0]:
-        print "Doing %s"%FeatureName
+        print("Doing %s"%FeatureName)
         CSMType = 'Euclidean' #Euclidean comparison by default
         if FeatureName in CSMTypes:
             CSMType = CSMTypes[FeatureName]
         Scores = np.zeros((N, N))
         for i in range(N):
-            print "Doing %s %i of %i..."%(FeatureName, i, N)
+            print("Doing %s %i of %i..."%(FeatureName, i, N))
             Features1 = AllFeatures[i][FeatureName]
             for j in range(i+1, N):
                 Features2 = AllFeatures[j][FeatureName]
@@ -220,11 +220,11 @@ def doSHSExperiment(IDs, Ks, CSMTypes, BeatsPerBlock, Kappa):
     NIters = 10
     K = 20
     for i in range(N):
-        print "Doing SNF %i of %i..."%(i, N)
+        print("Doing SNF %i of %i..."%(i, N))
         tic = time.time()
         for j in range(i+1, N):
             Scores[i, j] = getCSMSmithWatermanScoresEarlyFusion([AllFeatures[i], AllOtherFeatures[i], AllFeatures[j], AllOtherFeatures[j], Kappa, K, NIters, CSMTypes])
-        print "Elapsed Time: ", time.time() - tic
+        print("Elapsed Time: %g"%(time.time() - tic))
         Results['SNF'] = Scores + Scores.T
         sio.savemat("SHSDataset/SHSScores.mat", Results)
 
@@ -239,7 +239,7 @@ if __name__ == '__main__2':
     sio.savemat("SHSDataset/SHSIDs.mat", {"IDs":IDs, "Ks":Ks})
     tic = time.time()
     doSHSExperiment(IDs, Ks, CSMTypes, BeatsPerBlock, Kappa)
-    print "Elapsed Time All Comparisons: ", time.time() - tic
+    print("Elapsed Time All Comparisons: %g"%(time.time() - tic))
 
 if __name__ == '__main__':
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
@@ -262,8 +262,8 @@ if __name__ == '__main__':
     c = cliques[song]
     idx1 = c[0]
     idx2 = c[1]
-    print database[idx1]
-    print database[idx2]
+    print(database[idx1])
+    print(database[idx2])
 
     mfccs = loadSHSMFCCs(c)
     chromas = loadSHSChromas(c)

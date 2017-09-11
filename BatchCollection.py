@@ -178,7 +178,7 @@ def precomputeBatchFeatures(args):
     else:
         if XAudio.size == 0:
             (XAudio, Fs) = getAudio(audiofilename)
-            print "Fs = ", Fs
+            print("Fs = %i"%Fs)
         NMFCC = 20
         if 'NMFCC' in FeatureParams:
             NMFCC = FeatureParams['NMFCC']
@@ -193,7 +193,7 @@ def precomputeBatchFeatures(args):
     else:
         if XAudio.size == 0:
             (XAudio, Fs) = getAudio(audiofilename)
-            print "Fs = ", Fs
+            print("Fs = %i"%Fs)
         XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
 
     #Computed blocked features at different tempo levels
@@ -213,7 +213,7 @@ def precomputeBatchFeatures(args):
     for tidx in range(len(tempos)):
         tempo = ret['tempos%i'%tidx]
         beats = ret['beats%i'%tidx]
-        print "XMFCC.shape = ", XMFCC.shape
+        print("XMFCC.shape = ", XMFCC.shape)
         (Feats, O) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams), XMFCC, XChroma)
         ret['ChromaMean%i'%tidx] = O['ChromaMean']
 

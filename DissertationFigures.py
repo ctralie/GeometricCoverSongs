@@ -15,7 +15,7 @@ def plotCSM(CSM, artist1, artist2, songName):
     CSM2 = np.array(CSM)
     #CSM2[np.abs(I2 - J2) > 300] = np.inf
     idx = np.unravel_index(np.argmin(CSM2), CSM2.shape)
-    print idx
+    print(idx)
     plt.imshow(CSM, cmap = 'afmhot', interpolation = 'nearest')
     plt.hold(True)
     plt.scatter(idx[1], idx[0], 50)
@@ -56,13 +56,13 @@ def getSampleSSMs():
         artist2 = getCovers80ArtistName(files2[index])
         songName = getCovers80SongName(files1[index])
 
-        print "Getting features for %s..."%filename1
+        print("Getting features for %s..."%filename1)
         (XAudio1, Fs1) = getAudio(filename1)
         (tempo, beats1) = getBeats(XAudio1, Fs1, TempoBias1, hopSize)
         (Features1, O1) = getBlockWindowFeatures((XAudio1, Fs1, tempo, beats1, hopSize, FeatureParams))
         bRatio1 = float(Fs1)/hopSize
 
-        print "Getting features for %s..."%filename2
+        print("Getting features for %s..."%filename2)
         (XAudio2, Fs2) = getAudio(filename2)
         (tempo, beats2) = getBeats(XAudio2, Fs2, TempoBias2, hopSize)
         (Features2, O2) = getBlockWindowFeatures((XAudio2, Fs2, tempo, beats2, hopSize, FeatureParams))

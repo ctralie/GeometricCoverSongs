@@ -194,7 +194,7 @@ def getCSMType(Features1, O1, Features2, O2, Type):
         return getCSMCosineOTI(Features1, Features2, O1['ChromaMean'], O2['ChromaMean'])
     elif Type == "EMD1D":
         return getCSMEMD1D(Features1, Features2)
-    print "Error: Unknown CSM type ", Type
+    print("Error: Unknown CSM type ", Type)
     return None
 
 
@@ -353,7 +353,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(AllFeatures1, O1, AllFeatures2, O2,
         DBinary = CSMToBinaryMutual(np.exp(-CSM), Kappa)
 
     if doPlot:
-        print "Elapsed Time Similarity Fusion: ", t1
+        print("Elapsed Time Similarity Fusion: %g"%t1)
         N = len(CSMs)
         for i in range(N):
             plt.subplot(3, N+1, i+1)

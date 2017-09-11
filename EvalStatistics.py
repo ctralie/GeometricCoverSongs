@@ -64,7 +64,7 @@ def getEvalStatistics(ScoresParam, Ks, topsidx, fout, name):
         if i >= startidx + Ks[kidx]:
             startidx += Ks[kidx]
             kidx += 1
-        print startidx
+        print(startidx)
         for k in range(N):
             diff = idx[i, k] - startidx
             if diff >= 0 and diff < Ks[kidx]:
