@@ -34,7 +34,7 @@ static PyMethodDef module_methods[] = {
 static struct PyModuleDef Alignments =
 {
     PyModuleDef_HEAD_INIT,
-    "SequenceAlignment", /* name of module */
+    "_SequenceAlignment", /* name of module */
     module_docstring, /* module documentation, may be NULL */
     -1,   /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables. */
     module_methods
