@@ -12,7 +12,7 @@ import time
 import matplotlib.pyplot as plt
 from CSMSSMTools import *
 from BlockWindowFeatures import *
-from Covers80Experiments import *
+from MusicFeatures import *
 import json
 
 
@@ -107,8 +107,8 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
 if __name__ == '__main__':
     Kappa = 0.1
     hopSize = 512
-    TempoBias1 = 0
-    TempoBias2 = 0
+    TempoBias1 = 120
+    TempoBias2 = 120
 
         
     filename1 = "MJ.mp3"
