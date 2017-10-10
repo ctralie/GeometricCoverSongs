@@ -25,7 +25,7 @@ double swalignimp(double* S, int N, int M) {
     double gapScore = -2;
     
     N++; M++;
-    D = malloc(N*M*sizeof(double));
+    D = (double*)malloc(N*M*sizeof(double));
     D[0] = 0;
     for (i = 1; i < N; i++) {
         D[i*M] = 0;
@@ -83,7 +83,7 @@ double swalignimpconstrained(double* S, int N, int M) {
     double maxD, d1, d2, d3, MS;
     
     N++; M++;
-    D = malloc(N*M*sizeof(double));//Dynamic programming matrix
+    D = (double*)malloc(N*M*sizeof(double));//Dynamic programming matrix
     if (N < 4 || M < 4) {
         return 0.0;
     }    

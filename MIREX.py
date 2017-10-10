@@ -74,9 +74,9 @@ if __name__ == '__main__':
     Ds = assembleBatchBlocks(CSMTypes.keys() + ['SNF'], res, ranges, N)
 
     #Perform late fusion
-    Scores = [1.0/Ds[F] for F in Ds.keys()]
+    Scores = [1.0/(1.0+Ds[F]) for F in Ds.keys()]
     Ds['Late'] = doSimilarityFusion(Scores, 20, 20, 1)
-    D = Ds['Late']
+    D = np.exp(-Ds['Late']) #Turn similarity score into a distance
 
     #Save full distance matrix in case there's a problem
     #with the text output
