@@ -124,6 +124,8 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
         if XMFCCParam.size == 0:
             from MusicFeatures import getMFCCsLibrosa
             XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
+            #from MusicFeatures import getMFCCsLowMem
+            #XMFCC = getMFCCsLowMem(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)['XMFCC']
         else:
             XMFCC = XMFCCParam
     else:

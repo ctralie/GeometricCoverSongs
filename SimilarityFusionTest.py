@@ -9,7 +9,8 @@ from BlockWindowFeatures import *
 from MusicFeatures import *
 from EvalStatistics import *
 from SimilarityFusion import *
-from Covers80Experiments import *
+from Covers80 import *
+from SongComparator import *
 
 #Synthetic example
 if __name__ == "__main__2":
@@ -87,8 +88,8 @@ def makeISMIRPlot(index):
         O1 = X['O1']
         O2 = X['O2']
 
-    Features = ['SSMs', 'Chromas']
-    FeatureNames = {'SSMs':'MFCC SSMs', 'Chromas':'HPCP Blocks'}
+    Features = ['SSMs', 'Chromas', 'MFCCs']
+    FeatureNames = {'SSMs':'MFCC SSMs', 'MFCCs':'MFCCs', 'Chromas':'HPCP Blocks'}
     Features1b = {}
     Features2b = {}
     for F in Features:
@@ -106,7 +107,7 @@ def makeISMIRPlot(index):
     Ws = [] #W built from fused CSMs/SSMs
     Features = Features1.keys()
     #Compute all CSMs and SSMs
-    plt.figure(figsize=(15, 20))
+    plt.figure(figsize=(20, 20))
     for i in range(len(Features)):
         F = Features[i]
         SSMA = getCSMType(Features1[F], O1, Features1[F], O1, CSMTypes[F])
@@ -152,7 +153,7 @@ def makeISMIRPlot(index):
         (maxD, D) = SA.swalignimpconstrained(B)
         plt.subplot(4, len(Features)+1, (len(Features)+1)*3 + 1 + i)
         plt.imshow(D, cmap = 'afmhot', interpolation = 'nearest')
-        plt.title("Smith Waterman Score = %.3g"%maxD)
+        plt.title("%s Score = %.3g"%(FeatureNames[F], maxD))
         makeColorbar(4, len(Features)+1, (len(Features)+1)*3 + 1 + i)
         
     D = doSimilarityFusionWs(Ws, K, NIters, 1)
@@ -192,7 +193,7 @@ def makeISMIRPlot(index):
     (maxD, D) = SA.swalignimpconstrained(B)
     plt.subplot(4, len(Features)+1, (len(Features)+1)*4)
     plt.imshow(D, cmap = 'afmhot', interpolation = 'nearest')
-    plt.title("Smith Waterman Score = %.3g"%maxD)
+    plt.title("SNF Score = %.3g"%maxD)
     makeColorbar(4, len(Features)+1, (len(Features)+1)*4)
     
     
@@ -200,6 +201,6 @@ def makeISMIRPlot(index):
 
 
 if __name__ == '__main__':
-    makeISMIRPlot(6)
+    makeISMIRPlot(32)
     #for index in range(1, 80):
     #    makeISMIRPlot(index)

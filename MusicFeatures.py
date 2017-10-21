@@ -196,22 +196,54 @@ def getMFCCs(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC
     :return X: An (NMFCC x NWindows) array of MFCC samples
     """
     f, t, S = spectrogram(XAudio, nperseg=winSize, noverlap=winSize-hopSize, window='blackman')
-    M = getMelFilterbank(Fs, winSize, S.shape[0], NBands, fmax = fmax)
-
+    M = getMelFilterbank(Fs, winSize, S.size, NBands, fmax = fmax)
     #Convert STFT to Mel scale
-    X = M.dot(np.abs(S))
+    XMel = M.dot(np.abs(S))
     #Get log amplitude
     amin = 1e-10
-    X = 10*np.log10(np.maximum(amin, X))
+    XMel = 10*np.log10(np.maximum(amin, XMel))
     #Do DCT
-    B = getDCTBasis(NMFCC, X.shape[0])
-    X = np.dot(B, X)
+    B = getDCTBasis(NMFCC, XMel.shape[0])
+    XMFCC = np.dot(B, XMel)
     #Do liftering
     coeffs = np.arange(NMFCC)**lifterexp
     coeffs[0] = 1
-    X = coeffs[:, None]*X
-    X = np.array(X, dtype = np.float32)
-    return X
+    XMFCC = coeffs[:, None]*XMFCC
+    XMFCC = np.array(XMFCC, dtype = np.float32)
+    return {'XMFCC':XMFCC, 'XMel':XMel}
+
+def getMFCCsLowMem(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC = 20, lifterexp = 0):
+    """
+    Get MFCC features, my own implementation.  Do one STFT window
+        at a time
+    :param XAudio: A flat array of audio samples
+    :param Fs: Sample rate
+    :param winSize: Window size to use for STFT
+    :param hopSize: Hop size to use for STFT (default 512)
+    :param NBands: Number of mel bands to use
+    :param fmax: Maximum frequency
+    :param NMFCC: Number of MFCC coefficients to return
+    :param lifterexp: Lifter exponential
+    :return X: An (NMFCC x NWindows) array of MFCC samples
+    """
+    NWin = int(np.floor((len(XAudio)-winSize)/float(hopSize))) + 1
+    f, t, S = spectrogram(XAudio[0:winSize], nperseg=winSize, window='blackman')
+    M = getMelFilterbank(Fs, winSize, S.shape[0], NBands, fmax = fmax)
+    B = np.array(getDCTBasis(NMFCC, NBands), dtype = np.float32)
+    XMel = np.zeros((NBands, NWin), dtype = np.float32)
+    XMFCC = np.zeros((NMFCC, NWin), dtype = np.float32)
+    amin = 1e-10
+    #Do STFT window by window, convert to mel scale, and do DCT
+    for i in range(NWin):
+        f, t, S = spectrogram(XAudio[i*hopSize:i*hopSize+winSize], nperseg=winSize, window='blackman')
+        XMel[:, i] = M.dot(np.abs(S)).flatten()
+        XMel[:, i] = 10*np.log10(np.maximum(amin, XMel[:, i]))
+        XMFCC[:, i] = B.dot(XMel[:, i])
+    #Do liftering
+    coeffs = np.arange(NMFCC)**lifterexp
+    coeffs[0] = 1
+    XMFCC = coeffs[:, None]*XMFCC
+    return {'XMFCC':XMFCC, 'XMel':XMel}
 
 def getMFCCsLibrosa(XAudio, Fs, winSize, hopSize = 512, NBands = 40, fmax = 8000, NMFCC = 20, lifterexp = 0):
     """
@@ -294,6 +326,18 @@ def getHPCPEssentia(XAudio, Fs, winSize, hopSize, squareRoot = False, NChromaBin
     if squareRoot:
         H = sqrtCompress(H)
     return H
+
+def getHPCP(XAudio, Fs, winSize, hopSize, NChromaBins = 36):
+    """
+    My implementation of HPCP
+    """
+    #Squared cosine weight type, windowSize 1 for semitone weighting
+    #unitMax normalization
+    minFreq = 40
+    maxFreq = 5000
+    return None
+    
+    
 
 def getHPCPJVB(XAudio, Fs, winSize, hopSize, NChromaBins = 36):
     """
