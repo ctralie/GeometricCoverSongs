@@ -327,17 +327,38 @@ def getHPCPEssentia(XAudio, Fs, winSize, hopSize, squareRoot = False, NChromaBin
         H = sqrtCompress(H)
     return H
 
-def getHPCP(XAudio, Fs, winSize, hopSize, NChromaBins = 36):
+def getParabolicPeak(alpha, beta, gamma):
+    #https://ccrma.stanford.edu/~jos/parshl/Peak_Detection_Steps_3.html
+    p = 0.5*(alpha - gamma)/(alpha-2*beta+gamma)
+    b = beta - 0.25*(alpha - gamma)*p
+    #a = (x[0]-b)/(-1-p)**2
+    return (p, b)
+
+def getHPCP(XAudio, Fs, winSize, hopSize, NChromaBins = 36, minFreq = 40, maxFreq = 5000, bandSplitFreq = 500):
     """
     My implementation of HPCP
     """
-    #Squared cosine weight type, windowSize 1 for semitone weighting
-    #unitMax normalization
-    minFreq = 40
-    maxFreq = 5000
+    #Squared cosine weight type
+    #windowSize 1 for semitone weighting
+
+    NWin = int(np.floor((len(XAudio)-winSize)/float(hopSize))) + 1
+    f, t, S = spectrogram(XAudio[0:winSize], nperseg=winSize, window='blackman')
+    #Do STFT window by window,
+    for i in range(NWin):
+        hpcpLo = np.zeros(NChromaBins)
+        hpcpHi = np.zeros(NChromaBins)
+        f, t, S = spectrogram(XAudio[i*hopSize:i*hopSize+winSize], nperseg=winSize, window='blackman')
+        S = S.flatten()
+        #Find spectral peaks
+        idx = np.arange(1, S.size-1)
+        idx = idx[(S[idx-1] < S[idx])*(S[idx+1] < S[idx])]
+        #Add contribution of each peak
+
+        #unitMax normalization of low and hi individually
+
     return None
-    
-    
+
+
 
 def getHPCPJVB(XAudio, Fs, winSize, hopSize, NChromaBins = 36):
     """
