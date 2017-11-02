@@ -108,12 +108,16 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
 
     compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa, fileprefix, song1name = song1name, song2name = song2name)
 
+#Modify the main function below to try on songs of your choice
 if __name__ == '__main__':
-    Kappa = 0.1
+    #Fraction of nearest neighbors in binary cross-similarity matrix
+    Kappa = 0.1 
     hopSize = 512
+    #Tempo bias for each song in the dynamic programming beat tracker
     TempoBias1 = 180
     TempoBias2 = 180
-
+    
+    #Setup filenames, artist names, and song name
     from Covers80 import getCovers80ArtistName, getCovers80SongName
     fin = open('covers32k/list1.list', 'r')
     files1 = [f.strip() for f in fin.readlines()]
@@ -121,19 +125,20 @@ if __name__ == '__main__':
     fin = open('covers32k/list2.list', 'r')
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
-    for index in [4]:#[4, 6, 67]:
-        filename1 = "covers32k/" + files1[index] + ".mp3"
-        filename2 = "covers32k/" + files2[index] + ".mp3"
-        fileprefix = "Covers80_%i"%index
+    
+    index = 2
+    filename1 = "covers32k/" + files1[index] + ".mp3"
+    filename2 = "covers32k/" + files2[index] + ".mp3"
+    fileprefix = "Covers80_%i"%index
 
-        artist1 = getCovers80ArtistName(files1[index])
-        artist2 = getCovers80ArtistName(files2[index])
-        print("artist1 = %s"%artist1)
-        songName = getCovers80SongName(files1[index])
-
-        CurvSigmas = [10, 60]
-        FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
-
-        CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
-
-        compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, artist1, artist2)
+    artist1 = getCovers80ArtistName(files1[index])
+    artist2 = getCovers80ArtistName(files2[index])
+    print("artist1 = %s"%artist1)
+    songName = getCovers80SongName(files1[index])
+    
+    #Parameters for the blocked features
+    FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
+    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
+    
+    #Run comparison and make plots
+    compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, artist1, artist2)

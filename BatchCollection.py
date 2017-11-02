@@ -189,8 +189,8 @@ def precomputeBatchFeatures(args):
         if 'lifterexp' in FeatureParams:
             lifterexp = FeatureParams['lifterexp']
         winSize = Fs/2
-        XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
-        #XMFCC = getMFCCsLowMem(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)['XMFCC']
+        #XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
+        XMFCC = getMFCCsLowMem(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)['XMFCC']
 
     if 'XChroma' in PFeatures:
         XChroma = PFeatures['XChroma']
@@ -198,8 +198,8 @@ def precomputeBatchFeatures(args):
         if XAudio.size == 0:
             (XAudio, Fs) = getAudioLibrosa(audiofilename)
             print("Fs = %i"%Fs)
-        #XChroma = getHPCP(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
-        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
+        XChroma = getHPCP(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
+        #XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
 
     #Computed blocked features at different tempo levels
     winSize = Fs/2
