@@ -12,7 +12,8 @@ import time
 import matplotlib.pyplot as plt
 from CSMSSMTools import *
 from BlockWindowFeatures import *
-from MusicFeatures import *
+from pyMIRBasic.Onsets import *
+from pyMIRBasic.AudioIO import *
 import json
 
 
@@ -46,17 +47,17 @@ def pretty_floats(obj):
     return obj
 
 def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, outfilename, song1name = 'Song 1', song2name = 'Song 2'):
-    print "Getting features for %s..."%filename1
-    (XAudio, Fs) = getAudio(filename1)
+    print("Getting features for %s..."%filename1)
+    (XAudio, Fs) = getAudioLibrosa(filename1)
     (tempo, beats1) = getBeats(XAudio, Fs, TempoBias1, hopSize, filename1)
     (Features1, O1) = getBlockWindowFeatures((XAudio, Fs, tempo, beats1, hopSize, FeatureParams))
 
-    print "Getting features for %s..."%filename2
-    (XAudio, Fs) = getAudio(filename2)
+    print("Getting features for %s..."%filename2)
+    (XAudio, Fs) = getAudioLibrosa(filename2)
     (tempo, beats2) = getBeats(XAudio, Fs, TempoBias2, hopSize, filename2)
     (Features2, O2) = getBlockWindowFeatures((XAudio, Fs, tempo, beats2, hopSize, FeatureParams))
 
-    print "Feature Types: ", Features1.keys()
+    print("Feature Types: ", Features1.keys())
 
     beats1 = beats1*hopSize/float(Fs)
     beats2 = beats2*hopSize/float(Fs)
@@ -74,7 +75,7 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
         FeatureCSMs[FeatureName] = CSMs;
 
     #Do OR Merging
-    print "Doing OR Merging..."
+    print("Doing OR Merging...")
     res = getCSMSmithWatermanScoresORMerge(Features1, O1, Features2, O2, Kappa, CSMTypes, True)
     CSMs = {}
     CSMs['D'] = getBase64PNGImage(res['D'], 'afmhot')
@@ -85,7 +86,7 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
     FeatureCSMs['ORFusion'] = CSMs
 
     #Do cross-similarity fusion
-    print "Doing similarity network fusion..."
+    print("Doing similarity network fusion...")
     K = 20
     NIters = 3
     res = getCSMSmithWatermanScoresEarlyFusionFull(Features1, O1, Features2, O2, Kappa, K, NIters, CSMTypes, True)
@@ -97,6 +98,7 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
     FeatureCSMs['SNF'] = CSMs
 
     Results['FeatureCSMs'] = FeatureCSMs
+    print("Saving results...")
     #Add music as base64 files
     Results['file1'] = getBase64File(filename1)
     Results['file2'] = getBase64File(filename2)

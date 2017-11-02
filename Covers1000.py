@@ -29,13 +29,16 @@ def getAudioFeatures(hopSize, filename, mfccfilename, censfilename, hpcpfilename
         with dynamic programming, as well as a single madmom
         estimate, are computed)
     """
-    from MusicFeatures import getAudio, getMFCCsLibrosa, getCensFeatures, getHPCPEssentia, getBeats
+    from pyMIRBasic.Chroma import getCensFeatures, getHPCPEssentia
+    from pyMIRBasic.MFCC import getMFCCsLibrosa
+    from pyMIRBasic.Onsets import getBeats
+    from pyMIRBasic.AudioIO import getAudioLibrosa
     if os.path.exists(mfccfilename) and os.path.exists(censfilename) and os.path.exists(hpcpfilename) and os.path.exists(beatsfilename):
         print("Skipping %s"%filename)
         return
 
     print("Loading %s..."%filename)
-    (XAudio, Fs) = getAudio(filename)
+    (XAudio, Fs) = getAudioLibrosa(filename)
 
     #Compute MFCCs
     winSize = Fs/2

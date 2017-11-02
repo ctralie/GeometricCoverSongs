@@ -8,7 +8,6 @@ import scipy.io as sio
 import os
 from sys import exit, argv
 from BlockWindowFeatures import *
-from MusicFeatures import *
 from EvalStatistics import *
 from BatchCollection import *
 from SimilarityFusion import *

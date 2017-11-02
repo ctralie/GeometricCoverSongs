@@ -90,14 +90,15 @@ def compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa
     sio.savemat("%s.mat"%fileprefix, Results)
 
 def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, song1name = 'Song 1', song2name = 'Song 2'):
-    from MusicFeatures import getAudio, getBeats
+    from pyMIRBasic.AudioIO import getAudioLibrosa
+    from pyMIRBasic.Onsets import getBeats
     print("Getting features for %s..."%filename1)
-    (XAudio, Fs) = getAudio(filename1)
+    (XAudio, Fs) = getAudioLibrosa(filename1)
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize, filename2)
     (Features1, O1) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
 
     print("Getting features for %s..."%filename2)
-    (XAudio, Fs) = getAudio(filename2)
+    (XAudio, Fs) = getAudioLibrosa(filename2)
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias2, hopSize, filename2)
     (Features2, O2) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
 

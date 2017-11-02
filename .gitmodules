@@ -1,0 +1,3 @@
+[submodule "pyMIRBasic"]
+	path = pyMIRBasic
+	url = https://github.com/ctralie/pyMIRBasic.git

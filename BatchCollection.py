@@ -8,7 +8,10 @@ import numpy as np
 import scipy.io as sio
 import os
 from BlockWindowFeatures import *
-from MusicFeatures import *
+from pyMIRBasic.Chroma import *
+from pyMIRBasic.MFCC import *
+from pyMIRBasic.Onsets import *
+from pyMIRBasic.AudioIO import *
 from EvalStatistics import *
 import SequenceAlignment._SequenceAlignment as SAC
 from sys import stdout
@@ -177,7 +180,7 @@ def precomputeBatchFeatures(args):
         XMFCC = PFeatures['XMFCC']
     else:
         if XAudio.size == 0:
-            (XAudio, Fs) = getAudio(audiofilename)
+            (XAudio, Fs) = getAudioLibrosa(audiofilename)
             print("Fs = %i"%Fs)
         NMFCC = 20
         if 'NMFCC' in FeatureParams:
@@ -187,13 +190,15 @@ def precomputeBatchFeatures(args):
             lifterexp = FeatureParams['lifterexp']
         winSize = Fs/2
         XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
+        #XMFCC = getMFCCsLowMem(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)['XMFCC']
 
     if 'XChroma' in PFeatures:
         XChroma = PFeatures['XChroma']
     else:
         if XAudio.size == 0:
-            (XAudio, Fs) = getAudio(audiofilename)
+            (XAudio, Fs) = getAudioLibrosa(audiofilename)
             print("Fs = %i"%Fs)
+        #XChroma = getHPCP(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
         XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
 
     #Computed blocked features at different tempo levels

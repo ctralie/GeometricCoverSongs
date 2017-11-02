@@ -122,9 +122,8 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
     XMFCC = np.array([])
     if usingMFCC:
         if XMFCCParam.size == 0:
-            from MusicFeatures import getMFCCsLibrosa
+            from pyMIRBasic.MFCC import getMFCCsLibrosa
             XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
-            #from MusicFeatures import getMFCCsLowMem
             #XMFCC = getMFCCsLowMem(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)['XMFCC']
         else:
             XMFCC = XMFCCParam
@@ -249,20 +248,20 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
             print("")
             BlockFeatures['ChromasFTM2D'] = np.zeros((NChromaBlocks, ChromasPerBlock*NChromaBins))
         if XChromaParam.size == 0:
-            from MusicFeatures import getHPCPEssentia
+            from pyMIRBasic.Chroma import getHPCPEssentia
             #XChroma = getCensFeatures(XAudio, Fs, hopSize)
+            tic = time.time()
             XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
+            print("Elapsed Time Chroma: %g"%(time.time() - tic))
         else:
             XChroma = XChromaParam
+        print("XChroma.shape = ", XChroma.shape)
         OtherFeatures['ChromaMean'] = np.mean(XChroma, 1)
     for i in range(NChromaBlocks):
         i1 = beats[i]
         i2 = beats[i+ChromaBeatsPerBlock]
         x = XChroma[:, i1:i2].T
         x = scipy.misc.imresize(x, (ChromasPerBlock, x.shape[1]))
-        xnorm = np.sqrt(np.sum(x**2, 1))
-        xnorm[xnorm == 0] = 1
-        x = x/xnorm[:, None]
         BlockFeatures['Chromas'][i, :] = x.flatten()
         if FTM2D:
             xf = np.fft.fft(x, axis = 1)
