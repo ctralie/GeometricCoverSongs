@@ -43,8 +43,8 @@ if __name__ == '__main__':
     #Define parameters
     hopSize = 512
     Kappa = 0.1
-    #TempoLevels = [60, 120, 180]
-    TempoLevels = [0] #Madmom only
+    TempoLevels = [60, 120, 180]
+    #TempoLevels = [0] #Madmom only
     FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50, 'MFCCSamplesPerBlock':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'NMFCC':20, 'lifterexp':0.6}
 
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}

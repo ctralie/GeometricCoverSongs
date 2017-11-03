@@ -206,23 +206,6 @@ def doZappaComparisons(Kappa, BeatsPerBlock):
         sio.savemat("ResultsZappa.mat", AllResults)
         print("Batch %i Elapsed Time: %g"%(batch, time.time() - tic))
 
-if __name__ == '__main__2':
-    doZappaComparisons(0.1, 20)
-
-if __name__ == '__main__2':
-    hopSize = 512
-    #Compute features for 1000 songs
-    precomputeCovers1000Features(hopSize)
-    #Compute Zappa Features
-    getZappaFeatures(hopSize)
-
-    #Make a text file with all of the audio filenames
-    AllSongs = getSongPrefixes()
-    fout = open("covers1000collection.txt", "w")
-    for s in AllSongs:
-        fout.write("%s\n"%getAudioFilename(s))
-    fout.close()
-
 if __name__ == '__main__':
     if len(argv) < 7:
         print("Usage: python covers1000.py <doFeatures> <NPerBatch> <BatchNum> <Kappa> <BeatsPerBlock> <doMadmom>")

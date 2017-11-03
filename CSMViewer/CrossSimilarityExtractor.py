@@ -112,10 +112,10 @@ if __name__ == '__main__':
     TempoBias1 = 120
     TempoBias2 = 120
 
-        
+    #File information (change this to try songs of your choosing)
     filename1 = "MJ.mp3"
     filename2 = "AAF.mp3"
-    fileprefix = "SmoothCriminal"
+    fileprefix = "SmoothCriminal" #Save a JSON file with this prefix
     artist1 = "Michael Jackson"
     artist2 = "Alien Ant Farm"
     songName = "Smooth Criminal"
