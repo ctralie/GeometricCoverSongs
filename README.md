@@ -27,7 +27,7 @@ python setup.py build_ext --inplace
 ## Quick Comparison of Two Songs with Detailed Plots
 The file *SongComparator.py* is a quickstart for running the pipeline on a pair of songs.  The code will run and output cross-similarity matrices and Smith Waterman matrices for HPCPs, MFCCs, MFCC SSMs, and similarity fusion on all of the above.  Right now, it is set to compare an example from the [Covers80] dataset (see below), but you can modify the __main__ function to load in any two songs of your choosing.  One of the example plots for a song in the [Covers80] dataset is shown below
 
-[Covers80 example](https://raw.githubusercontent.com/ctralie/GeometricCoverSongs/master/Covers80_4.png)
+![Covers80 example](https://raw.githubusercontent.com/ctralie/GeometricCoverSongs/master/Covers80_4.png)
 
 
 
