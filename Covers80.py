@@ -69,7 +69,7 @@ if __name__ == '__main__':
     ranges = getBatchBlockRanges(N, NPerBlock)
     args = zip(ranges, [Kappa]*len(ranges), [CSMTypes]*len(ranges), [allFiles]*len(ranges), [scratchDir]*len(ranges))
     res = parpool.map(compareBatchBlock, args)
-    Ds = assembleBatchBlocks(CSMTypes.keys() + ['SNF'], res, ranges, N)
+    Ds = assembleBatchBlocks(list(CSMTypes) + ['SNF'], res, ranges, N)
 
     #Perform late fusion
     Scores = [1.0/Ds[F] for F in Ds.keys()]

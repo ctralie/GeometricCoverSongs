@@ -51,14 +51,14 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
         MFCCBeatsPerBlock = FeatureParams['MFCCBeatsPerBlock']
         usingMFCC = True
 
-    NMFCCBlocks = NBeats - MFCCBeatsPerBlock
+    NMFCCBlocks = int(NBeats - MFCCBeatsPerBlock)
 
     if 'MFCCSamplesPerBlock' in FeatureParams:
         MFCCSamplesPerBlock = FeatureParams['MFCCSamplesPerBlock']
         BlockFeatures['MFCCs'] = np.zeros((NMFCCBlocks, MFCCSamplesPerBlock*NMFCC))
     if 'DPixels' in FeatureParams:
         DPixels = FeatureParams['DPixels']
-        NPixels = DPixels*(DPixels-1)/2
+        NPixels = int(DPixels*(DPixels-1)/2)
         [I, J] = np.meshgrid(np.arange(DPixels), np.arange(DPixels))
         BlockFeatures['SSMs'] = np.zeros((NMFCCBlocks, NPixels), dtype = np.float32)
         if 'DiffusionKappa' in FeatureParams:

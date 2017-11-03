@@ -135,7 +135,7 @@ def getCSMCosineOTI(X, Y, C1, C2):
     :return D: An MxN distance matrix
     """
     NChromaBins = len(C1)
-    ChromasPerBlock = X.shape[1]/NChromaBins
+    ChromasPerBlock = int(X.shape[1]/NChromaBins)
     oti = getOTI(C1, C2)
     X1 = np.reshape(X, (X.shape[0], ChromasPerBlock, NChromaBins))
     X1 = np.roll(X1, oti, axis=2)
@@ -257,7 +257,7 @@ def getCSMSmithWatermanScoresORMerge(AllFeatures1, O1, AllFeatures2, O2, Kappa, 
     """
     CSMs = []
     DsBinary = []
-    Features = AllFeatures1.keys()
+    Features = list(AllFeatures1)
     #Compute all CSMs
     for i in range(len(Features)):
         F = Features[i]
@@ -319,7 +319,7 @@ def getCSMSmithWatermanScoresEarlyFusionFull(AllFeatures1, O1, AllFeatures2, O2,
     """
     CSMs = [] #Individual CSMs
     Ws = [] #W built from fused CSMs/SSMs
-    Features = AllFeatures1.keys()
+    Features = list(AllFeatures1)
     OtherCSMs = {}
     #Compute all CSMs and SSMs
     for i in range(len(Features)):

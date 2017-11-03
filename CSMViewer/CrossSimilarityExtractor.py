@@ -65,7 +65,7 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
     #Do each feature individually
     FeatureCSMs = {}
     for FeatureName in Features1:
-        print "Doing %s..."%FeatureName
+        print("Doing %s..."%FeatureName)
         res =  getCSMSmithWatermanScores(Features1[FeatureName], O1, Features2[FeatureName], O2, Kappa, CSMTypes[FeatureName], True)
         CSMs = {}
         CSMs['D'] = getBase64PNGImage(res['D'], 'afmhot')
