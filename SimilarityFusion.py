@@ -7,6 +7,7 @@ Purpose: To implement similarity network fusion approach described in
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import sparse
+import scipy.ndimage.interpolation as interp
 import scipy.io as sio
 import time
 import os
@@ -174,14 +175,14 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verbos
         if len(PlotNames) == N:
             k = int(np.ceil(np.sqrt(N)))
             for i in range(N):
-                res = np.argmax(Pts[i][0:80, 80::], 1)
-                res = np.sum(res == np.arange(80))
                 plt.subplot(k, k, i+1)
                 Im = 1.0*Pts[i]
                 Idx = np.arange(Im.shape[0], dtype=np.int64)
                 Im[Idx, Idx] = 0
-                plt.imshow(Im, interpolation = 'none')
-                plt.title("%s: %i/80"%(PlotNames[i], res))
+                if Im.shape[0] > 400:
+                    Im = interp.zoom(Im, 400.0/Im.shape[0])
+                plt.imshow(Im, interpolation = 'none', cmap = 'afmhot')
+                plt.title(PlotNames[i])
                 plt.axis('off')
             plt.savefig("SSMFusion%i.png"%it, dpi=150, bbox_inches='tight')
         for i in range(N):
