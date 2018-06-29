@@ -96,13 +96,13 @@ def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, Featu
     print("Getting features for %s..."%filename1)
     (XAudio, Fs) = getAudioLibrosa(filename1)
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize, filename2)
-    print(beats)
-    print(tempo)
+    print("Tempo 1: %.3g bpm"%tempo)
     (Features1, O1) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
 
     print("Getting features for %s..."%filename2)
     (XAudio, Fs) = getAudioLibrosa(filename2)
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias2, hopSize, filename2)
+    print("Tempo 2: %.3g bpm"%tempo)
     (Features2, O2) = getBlockWindowFeatures((XAudio, Fs, tempo, beats, hopSize, FeatureParams))
 
     print("Feature Types: ", Features1.keys())
@@ -129,7 +129,7 @@ if __name__ == '__main__':
     files2 = [f.strip() for f in fin.readlines()]
     fin.close()
     
-    index = 2
+    index = 4
     filename1 = "covers32k/" + files1[index] + ".mp3"
     filename2 = "covers32k/" + files2[index] + ".mp3"
     fileprefix = "Covers80_%i"%index
