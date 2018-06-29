@@ -44,6 +44,9 @@ if __name__ == '__main__':
         print("Already done covers80 with BeatsPerBlock = %i, Kappa = %g"%(BeatsPerBlock, Kappa))
         exit(0)
 
+    if not os.path.exists(scratchDir):
+        os.mkdir(scratchDir)
+
     FeatureParams = {'MFCCBeatsPerBlock':BeatsPerBlock, 'DPixels':50, 'MFCCSamplesPerBlock':50, 'ChromaBeatsPerBlock':BeatsPerBlock, 'ChromasPerBlock':BeatsPerBlock*2, 'NMFCC':20, 'lifterexp':0.6}
 
     #What types of cross-similarity should be used to compare different blocks for different feature types

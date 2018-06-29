@@ -12,6 +12,7 @@ First, you will need to install the dependencies
 Once you have the dependencies installed, you can checkout the code
 ~~~~~ bash
 git clone https://github.com/ctralie/GeometricCoverSongs.git
+cd GeometricCoverSongs
 git submodule update --init
 git submodule update --remote
 ~~~~~
@@ -65,21 +66,21 @@ Once you have computed blocked features for all 999 songs, it's time to compare 
 python covers1000.py 0 <NPerBatch> <BatchNum> <Kappa> <BeatsPerBlock> <doMadmom>
 ~~~~~
 
-Where NPerBatch gives the size of a patch in the all pairs similarity score matrix, and BatcNum gives the batch to compute.  For instance, if NPerBatch = 20, then compare 20 songs with 20 other songs, and since there are 1000 songs total, there are (1000/20)x(1000/20) = 2500 total of these batches to compare.  Once all batches have been completed, you can run the file *doMIREX.py* (see below) with the collection and query list "covers1000collection.txt" and the scratch directory "Covers1000Scratch" to fuse all of them together in one matrix of all pairs of similarities (NOTE: This will take no time once covers1000.py has been run; it just saves code to use *doMIREX.py* to fuse all of the blocks into one batch since that file also runs all pairs of comparisons in batch blocks).
+Where NPerBatch gives the size of a patch in the all pairs similarity score matrix, and BatcNum gives the batch to compute.  For instance, if NPerBatch = 20, then compare 20 songs with 20 other songs, and since there are 1000 songs total, there are (1000/20)x(1000/20) = 2500 total of these batches to compare.  Once all batches have been completed, you can run the file *MIREX.py* (see below) with the collection and query list "covers1000collection.txt" and the scratch directory "Covers1000Scratch" to fuse all of them together in one matrix of all pairs of similarities (NOTE: This will take no time once covers1000.py has been run; it just saves code to use *MIREX.py* to fuse all of the blocks into one batch since that file also runs all pairs of comparisons in batch blocks).
 
 
 
 ## MIREX / General Batch Tests
-There is a file *doMIREX.py* for making batch tests convenient on all pairs of songs.  The command calling format is the same as specified in the [cover song identification wiki].  Namely, run the following command at the root of the directory:
+There is a file *MIREX.py* for making batch tests convenient on all pairs of songs.  The command calling format is the same as specified in the [cover song identification wiki].  Namely, run the following command at the root of the directory:
 
 ~~~~~ bash
-python doMIREX.py <collection_list_file> <query_list_file> <working_directory> <output_file> <num threads>
+python MIREX.py <collection_list_file> <query_list_file> <working_directory> <output_file> <num threads>
 ~~~~~
 
 
 For example
 ~~~~~ bash
-python doMIREX.py collections.list queries.list ScratchDir Results.txt 8
+python MIREX.py collections.list queries.list ScratchDir Results.txt 8
 ~~~~~
 
 will run all pairs comparisons using songs in collections.list and queries.list and using "ScratchDir" as the scratch directory, using 8 threads for parallel computation.  After it's finished, 'Results.txt' will contain the table of scores between songs, formatted to specification.
