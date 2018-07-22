@@ -198,8 +198,8 @@ def precomputeBatchFeatures(args):
         if XAudio.size == 0:
             (XAudio, Fs) = getAudioLibrosa(audiofilename)
             print("Fs = %i"%Fs)
-        #XChroma = getHPCP(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
-        XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
+        XChroma = getHPCP(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
+        #XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
 
     #Computed blocked features at different tempo levels
     winSize = Fs/2

@@ -251,7 +251,8 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
             from pyMIRBasic.Chroma import getHPCPEssentia
             #XChroma = getCensFeatures(XAudio, Fs, hopSize)
             tic = time.time()
-            XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
+            XChroma = getHPCP(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
+            #XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)
             print("Elapsed Time Chroma: %g"%(time.time() - tic))
         else:
             XChroma = XChromaParam
