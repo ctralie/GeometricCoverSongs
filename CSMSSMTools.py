@@ -5,13 +5,45 @@ and cross-similarity matrices (CSMs), with a particular
 emphasis on speeding up Euclidean SSMs/CSMs.
 """
 import numpy as np
+import scipy.misc
+import scipy.interpolate
 import matplotlib.pyplot as plt
 import SequenceAlignment.SequenceAlignment as SA
 import SequenceAlignment._SequenceAlignment as SAC
 from SimilarityFusion import *
-import scipy.misc
 import time
 from multiprocessing import Pool as PPool
+
+def imresize(D, dims, kind='cubic', use_scipy=False):
+    """
+    Resize a floating point image
+    Parameters
+    ----------
+    D : ndarray(M1, N1)
+        Original image
+    dims : tuple(M2, N2)
+        The dimensions to which to resize
+    kind : string
+        The kind of interpolation to use
+    use_scipy : boolean
+        Fall back to scipy.misc.imresize.  This is a bad idea
+        because it casts everything to uint8, but it's what I
+        was doing accidentally for a while
+    Returns
+    -------
+    D2 : ndarray(M2, N2)
+        A resized array
+    """
+    if use_scipy:
+        return scipy.misc.imresize(D, dims)
+    else:
+        M, N = dims
+        x1 = np.array(0.5 + np.arange(D.shape[1]), dtype=np.float32)/D.shape[1]
+        y1 = np.array(0.5 + np.arange(D.shape[0]), dtype=np.float32)/D.shape[0]
+        x2 = np.array(0.5 + np.arange(N), dtype=np.float32)/N
+        y2 = np.array(0.5 + np.arange(M), dtype=np.float32)/M
+        f = scipy.interpolate.interp2d(x1, y1, D, kind=kind)
+        return f(x2, y2)
 
 def getSSM(X, DPixels, doPlot = False):
     """
@@ -30,10 +62,10 @@ def getSSM(X, DPixels, doPlot = False):
         plt.subplot(121)
         plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
         plt.subplot(122)
-        plt.imshow(scipy.misc.imresize(D, (DPixels, DPixels)), interpolation = 'nearest', cmap = 'afmhot')
+        plt.imshow(imresize(D, (DPixels, DPixels)), interpolation = 'nearest', cmap = 'afmhot')
         plt.show()
     if not (D.shape[0] == DPixels):
-        return (D, scipy.misc.imresize(D, (DPixels, DPixels)))
+        return (D, imresize(D, (DPixels, DPixels)))
     return (D, D)
 
 def getSSMAltMetric(X, A, DPixels, doPlot = False):

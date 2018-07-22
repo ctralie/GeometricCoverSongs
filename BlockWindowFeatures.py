@@ -6,7 +6,6 @@ within blocks
 import numpy as np
 import sys
 import scipy.io as sio
-import scipy.misc
 from scipy.interpolate import interp1d
 from scipy import signal
 import time
@@ -134,7 +133,8 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
     for i in range(NMFCCBlocks):
         i1 = beats[i]
         i2 = beats[i+MFCCBeatsPerBlock]
-        x = XMFCC[:, i1:i2].T
+        x = np.array(XMFCC[:, i1:i2].T)
+        
         #Mean-center x
         x = x - np.mean(x, 0)
         #Normalize x
@@ -144,7 +144,7 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
 
         #Straight block-windowed MFCC
         if MFCCSamplesPerBlock > -1:
-            xnr = scipy.misc.imresize(xn, (MFCCSamplesPerBlock, xn.shape[1]))
+            xnr = imresize(xn, (MFCCSamplesPerBlock, xn.shape[1]))
             BlockFeatures['MFCCs'][i, :] = xnr.flatten()
 
         #Compute SSM and D2 histogram
@@ -207,17 +207,17 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
             SSImages = getMultiresCurvatureImages(xn, MaxOrder, sigmasSS)
             if len(SSImages) >= 3 and NTorsSS > -1:
                 TSS = SSImages[2]
-                TSS = scipy.misc.imresize(TSS, (len(sigmasSS), NTorsSS))
+                TSS = imresize(TSS, (len(sigmasSS), NTorsSS))
                 BlockFeatures['TorsSS'][i, :] = TSS.flatten()
             if len(SSImages) >= 2 and NCurvSS > -1:
                 CSS = SSImages[1]
-                CSS = scipy.misc.imresize(CSS, (len(sigmasSS), NCurvSS))
+                CSS = imresize(CSS, (len(sigmasSS), NCurvSS))
                 #plt.imshow(CSS, interpolation = 'none', aspect = 'auto')
                 #plt.show()
                 BlockFeatures['CurvsSS'][i, :] = CSS.flatten()
             if len(SSImages) >= 1 and NJumpSS > -1:
                 JSS = SSImages[0]
-                JSS = scipy.misc.imresize(JSS, (len(sigmasSS), NJumpSS))
+                JSS = imresize(JSS, (len(sigmasSS), NJumpSS))
                 BlockFeatures['JumpsSS'][i, :] = JSS.flatten()
 
 
@@ -260,8 +260,10 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
     for i in range(NChromaBlocks):
         i1 = beats[i]
         i2 = beats[i+ChromaBeatsPerBlock]
-        x = XChroma[:, i1:i2].T
-        x = scipy.misc.imresize(x, (ChromasPerBlock, x.shape[1]))
+        x = np.array(XChroma[:, i1:i2].T)
+        if np.max(x) > 0:
+            x = x/np.max(x)
+        x = imresize(x, (ChromasPerBlock, x.shape[1]))
         BlockFeatures['Chromas'][i, :] = x.flatten()
         if FTM2D:
             xf = np.fft.fft(x, axis = 1)
