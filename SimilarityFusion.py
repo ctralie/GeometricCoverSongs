@@ -143,15 +143,17 @@ def getS(W, K):
     return S
 
 
-def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verboseTimes = False):
+def doSimilarityFusionWs(Ws, K = 5, NIters = 20, regDiag = 1, regNeighbs = 0.0, PlotNames = [], verboseTimes = False):
     """
     Perform similarity fusion between a set of exponentially
     weighted similarity matrices
     :param Ws: An array of NxN affinity matrices for N songs
     :param K: Number of nearest neighbors
     :param NIters: Number of iterations
-    :param reg: Identity matrix regularization parameter for
+    :param regDiag: Identity matrix regularization parameter for
         self-similarity promotion
+    :param regNeighbs: Neighbor regularization parameter for promoting
+        adjacencies in time
     :param PlotNames: Strings describing different similarity
         measurements. If this array is specified, an
         animation will be saved of the cross-diffusion process
@@ -203,11 +205,15 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verbos
             tic = time.time()
             A = Ss[i].dot(nextPts[i].T)
             nextPts[i] = Ss[i].dot(A.T)
+            if regDiag > 0:
+                nextPts[i] += regDiag*np.eye(nextPts[i].shape[0])
+            if regNeighbs > 0:
+                arr = np.arange(nextPts[i].shape[0])
+                [I, J] = np.meshgrid(arr, arr)
+                #Add diagonal regularization as well
+                nextPts[i][np.abs(I - J) == 1] += regNeighbs
             toc = time.time()
             AllTimes.append(toc - tic)
-
-            if reg > 0:
-                nextPts[i] += reg*np.eye(nextPts[i].shape[0])
 
         Pts = nextPts
     if verboseTimes:
@@ -217,14 +223,14 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, reg = 1, PlotNames = [], verbos
         FusedScores += Pt
     return FusedScores/N
 
-def doSimilarityFusion(Scores, K = 5, NIters = 20, reg = 1, PlotNames = []):
+def doSimilarityFusion(Scores, K = 5, NIters = 20, regDiag = 1, regNeighbs = 0.0, PlotNames = []):
     """
     Do similarity fusion on a set of NxN distance matrices.
     Parameters the same as doSimilarityFusionWs
     """
     #Affinity matrices
     Ws = [getW(D, K) for D in Scores]
-    return doSimilarityFusionWs(Ws, K, NIters, reg, PlotNames)
+    return doSimilarityFusionWs(Ws, K, NIters, regDiag, regNeighbs, PlotNames)
 
 if __name__ == '__main__':
     fout = open("Covers80ResultsFinal.html", "a")

@@ -1,0 +1,505 @@
+<html>
+
+<head>
+<meta charset=utf-8 />
+<title>Loop Ditty Geometric Music Visualizer</title>
+<!--External Libraries!-->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<!--<script src="http://connect.soundcloud.com/sdk.js"></script>-->
+<script src="https://connect.soundcloud.com/sdk/sdk-3.1.2.js"></script>
+<script type="text/javascript" src="libs/gl-matrix-min.js"></script>
+<script type="text/javascript" src="libs/webgl-utils.js"></script>
+<script type="text/javascript" src="libs/numeric-1.2.6.min.js"></script>
+<!--Libraries for capturing GIFs!-->
+<script type="text/javascript" src="libs/gif.js"></script>
+<script type="text/javascript" src="libs/gif.worker.js"></script>
+
+<!--My Scripts!-->
+<script src="Cameras3D.js"></script>
+<script src="DefaultCurves.js"></script>
+<script src="Colormaps.js"></script>
+<script src="PrecomputedSongs.js"></script>
+<script src="LoopDittyGL.js"></script>
+<script src="MusicFeatures.js"></script>
+<script src="MatrixUtilities.js"></script>
+
+
+<style>
+button {
+  outline: none;
+  background-color: #bfbfbf;
+  border: 2px solid #000;
+  color: #000;
+  padding: 10px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 6px;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+body {
+    background-color: #202020;
+    color:#CCCCCC;
+}
+
+p {
+    letter-spacing: 2px;
+    line-height: 180%;
+    font-family: "Droid Serif", "DejaVu Serif", "Garamond", sans-serif;
+}
+
+#sourceorder {
+  font-size: 22px;
+}
+
+button:hover {
+  opacity: 0.6;
+}
+
+a:hover {
+    opacity: 0.6;
+}
+
+a {
+color: #617944;
+}
+
+a:visited {
+color: #8dae4e;
+}
+
+input[type=text] {
+    background-color: #202020;
+    color: #8dae4e;
+    padding:8;
+}
+
+input[type=submit] {
+    padding:5px 15px;
+    background:#ccc;
+    border:0 none;
+    cursor:pointer;
+    -webkit-border-radius: 5px;
+    border-radius: 5px;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  margin: 13.2px 0;
+}
+input[type=range]:focus {
+  outline: none;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 12.6px;
+  cursor: pointer;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+  background: #928483;
+  border-radius: 6.2px;
+  border: 0.7px solid #562425;
+}
+input[type=range]::-webkit-slider-thumb {
+  box-shadow: 1px 1px 1px #050000, 0px 0px 1px #1f0000;
+  border: 2.2px solid #000000;
+  height: 39px;
+  width: 19px;
+  border-radius: 2px;
+  background: #6b1817;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -13.9px;
+}
+input[type=range]:focus::-webkit-slider-runnable-track {
+  background: #9e9191;
+}
+input[type=range]::-moz-range-track {
+  width: 100%;
+  height: 12.6px;
+  cursor: pointer;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+  background: #928483;
+  border-radius: 6.2px;
+  border: 0.7px solid #562425;
+}
+input[type=range]::-moz-range-thumb {
+  box-shadow: 1px 1px 1px #050000, 0px 0px 1px #1f0000;
+  border: 2.2px solid #000000;
+  height: 39px;
+  width: 19px;
+  border-radius: 2px;
+  background: #6b1817;
+  cursor: pointer;
+}
+input[type=range]::-ms-track {
+  width: 100%;
+  height: 12.6px;
+  cursor: pointer;
+  background: transparent;
+  border-color: transparent;
+  color: transparent;
+}
+input[type=range]::-ms-fill-lower {
+  background: #867776;
+  border: 0.7px solid #562425;
+  border-radius: 12.4px;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+}
+input[type=range]::-ms-fill-upper {
+  background: #928483;
+  border: 0.7px solid #562425;
+  border-radius: 12.4px;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+}
+input[type=range]::-ms-thumb {
+  box-shadow: 1px 1px 1px #050000, 0px 0px 1px #1f0000;
+  border: 2.2px solid #000000;
+  height: 39px;
+  width: 19px;
+  border-radius: 2px;
+  background: #6b1817;
+  cursor: pointer;
+  height: 12.6px;
+}
+input[type=range]:focus::-ms-fill-lower {
+  background: #928483;
+}
+input[type=range]:focus::-ms-fill-upper {
+  background: #9e9191;
+}
+
+
+
+.dropbtn {
+    background-color: #bfbfbf;
+    color: black;
+    padding: 16px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+}
+
+.dropbtn:hover, .dropbtn:focus {
+    opacity: 0.6;
+}
+
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #000000;
+    min-width: 400px;
+    overflow: auto;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+}
+
+.dropdown-content button {
+    outline: none;
+    background-color: #000000;
+    color: #8dae4e;
+    padding: 0px 0px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.dropdown-content button:hover {
+    opacity: 0.6;
+}
+
+.show {display:block;}
+
+/* Tooltip container */
+//http://www.w3schools.com/css/css_tooltip.asp
+.tooltip {
+    position: relative;
+    display: inline-block;
+    border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+}
+
+/* Tooltip text */
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 400px;
+    background-color: black;
+    color: #fff;
+    text-align: left;
+    padding: 10px;
+    border-radius: 6px;
+
+    /* Position the tooltip text - see examples below! */
+    position: absolute;
+    z-index: 1;
+}
+
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+
+
+#title {
+    margin: 0;
+    font-size: 3em;
+    text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.4);
+    font-family: 'Poiret One', cursive;
+    margin-bottom: 10;
+}
+
+#subtitle {
+    font-family: "Droid Serif", "DejaVu Serif", "Garamond", serif;
+    font-size: 1.5em;
+    margin-bottom: 30;
+}
+
+#paramtitle {
+    font-family: "Droid Serif", "DejaVu Serif", "Garamond", serif;
+    font-size: 1.5em;
+    margin-top: 30;
+    margin-bottom: 10;
+}
+
+#paramchoice {
+    font-family: "Droid Serif", "DejaVu Serif", "Garamond", serif;
+    margin-top: 5;
+    margin-bottom: 5;
+}
+
+#acknowledgements {
+    font-family: "Droid Serif", "DejaVu Serif", "Garamond", serif;
+    font-size: 1em;
+    margin-bottom: 30;
+}
+
+#directionbig {
+    font-family: "Droid Sans", "DejaVu Sans", "Arial", sans-serif;
+    font-weight: bold;
+    font-size: 22px;
+}
+
+#grayband {
+    color:#101010;
+}
+
+
+
+</style>
+</head>
+
+<body onload="webGLStart();">
+
+<div id = "title">Structure Visualizer</div>
+<div id = "subtitle"> by <a href = "http://www.ctralie.com">Chris Tralie</a></div>
+
+
+<table>
+<tr><td colspan = "2"><div id = "acknowledgements">Supported by an <a href = "https://www.nsfgrfp.org/">NSF Graduate Fellowship</a> NSF DGF 1106401 and an NSF Research Training Grant NSF-DMS 1045133.
+</div>
+</td></tr>
+
+
+<tr><td><div id = "directionbig">Load Structure File</div></td><td><input type = "file" id = "fileInput"></td></tr>
+
+
+</table>
+
+<BR><BR>
+
+<table width = 1200>
+<tr><td><HR></td><td></td></tr>
+<tr>
+<td width = 800>
+<a name = "loading"></a>
+<div id = "pagestatus"><h3><font color = "red">Waiting for Input...</font></h3></div>
+</td>
+</tr>
+
+<tr><td>
+<table><tr><td>
+<canvas id="LoopDittyGLCanvas" style="border: none;" width="800" height="600"></canvas>
+</td></tr>
+<tr><td width = 800>
+
+
+<div id = "manualwidget">
+<input type="range" id="timeSlider" min = "0" max = "1000" value = "0" step = "1" style="width:760px"><br>
+<table>
+<tr>
+<td><button type = "button" onclick = "playAudioButton()">&#9654;</button></td>
+<td><button type = "button" onclick = "pauseAudio()">&#10073;&#10073;</button></td>
+<td><button type = "button" onclick = "startAnimation()">Make GIF</button></td>
+</tr>
+</table>
+</div>
+
+
+</td></tr>
+</table>
+
+
+</td>
+<td>
+
+<!--Parameter Choices!-->
+<table>
+<tr>
+<td colspan = "2">
+    <div class="tooltip"><div id = "paramtitle">Display Parameters</div>
+        <span class="tooltiptext">These are aesthetic animation parameters which can be updated quickly without any long re-computation</span>
+    </div>
+
+</td>
+</tr>
+<tr>
+<td><div id = "paramchoice">
+    <div class="tooltip">Display Time Edges
+        <span class="tooltiptext">Choose whether or not line segments should be drawn between points which are adjacent in time in the song.</span>
+    </div>
+</div></td><td>
+<input type="checkbox" id="timeEdgesCheckbox" /></td>
+</tr>
+<tr><td colspan = "2">
+        <div class="tooltip"><div id = "paramtitle">Feature Choices</div>
+            <span class="tooltiptext">Each point in this animation is a 3 dimensional projection of a bunch of numbers which describe perceptual aspects of a chunk of music.  As the sound changes, these numbers also change, and so the points move through space.  You can choose to include or exclude certain numbers from contributing to the position of the points by checking and unchecking the boxes below</span>
+        </div>
+    </div></td></tr>
+
+</table>
+
+
+
+</td>
+</tr>
+
+
+</table>
+
+
+
+<script>
+    var source = null;
+    var analyser = null;
+    var context = new (window.AudioContext || window.webkitAudioContext)();
+    var buffer = null;
+    var waitingDisp = document.getElementById("pagestatus");
+
+
+    function disconnect() {
+        source.stop();
+        source.disconnect(0);
+        analyser.disconnect(0);
+    }
+
+    function playAudioButton() {
+        if (!playing) {
+            //Prevent the user from accidentally playing multiple audio streams
+            playAudio();
+        }
+    }
+
+    function playAudio() {
+        if (context === null) {
+            return;
+        }
+        playing = true;
+        source = context.createBufferSource();
+        source.buffer = buffer;
+        analyser = context.createAnalyser();
+        source.connect(analyser);
+        analyser.connect(context.destination);
+
+        startTime = context.currentTime;
+
+        //setTimeout(disconnect, source.buffer.duration * 1000 +1000);
+
+        source.start(context.currentTime, offsetTime, buffer.duration - offsetTime);
+
+        playIdx = 0;
+        requestAnimFrame(function(){repaintWithContext(context)});
+    }
+
+    function pauseAudio() {
+        if (source === null) {
+            return;
+        }
+        playing = false;
+        source.stop();
+        offsetTime = context.currentTime - startTime + offsetTime;
+    }
+
+    function decodeAudio(arrayBuff) {
+        if(context.decodeAudioData) {
+            context.decodeAudioData(arrayBuff, function(buff) {
+            buffer = buff;
+            }, function(e) {
+                console.log(e);
+                alert("Error Decoding Audio");
+            });
+        } else {
+            buffer = context.createBuffer(data, false /*mixToMono*/);
+            alert("Error Decoding Audio");
+            playAudio();
+        }
+    }
+
+    var fileInput = document.getElementById('fileInput');
+	fileInput.addEventListener('change', function(e) {
+		var file = fileInput.files[0];
+		var reader = new FileReader();
+		reader.onload = function(e) {
+            var Results = JSON.parse(reader.result);
+            //Setup audio buffers
+            var arrayBuff = base64ToArrayBuffer(Results.mp3data);
+            decodeAudio(arrayBuff, 1);
+            bts1 = Results.beats1;
+            initGLBuffers(Results.X);
+            timeSlider.value = 0;
+            changeToReady();
+		}
+		reader.readAsText(file);
+	});
+
+
+
+    var timeSlider = document.getElementById('timeSlider');
+    timeSlider.addEventListener('change', function(e) {
+        if (buffer === null) {
+            return;
+        }
+        offsetTime = buffer.duration*parseFloat(timeSlider.value)/1000.0;
+        playIdx = 0;
+        requestAnimFrame(function(){repaintWithContext(context)});
+        if (playing) {
+            source.stop();
+            playAudio();
+        }
+    });
+
+    var timeEdgesCheckbox = document.getElementById('timeEdgesCheckbox');
+    timeEdgesCheckbox.addEventListener('change', function(e) {
+        MusicParams.displayTimeEdges = timeEdgesCheckbox.checked;
+        makeMusicParamsDirty();
+    });
+    timeEdgesCheckbox.checked = true;
+
+
+    function dropdownHandler() {
+        document.getElementById("precomputedExamples").classList.toggle("show");
+    }
+
+    checkURLParameters();
+</script>
+
+
+</body>
+</html>

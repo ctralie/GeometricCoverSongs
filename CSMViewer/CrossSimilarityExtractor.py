@@ -113,13 +113,15 @@ if __name__ == '__main__':
     TempoBias2 = 120
 
     #File information (change this to try songs of your choosing)
+    """
     filename1 = "MJ.mp3"
     filename2 = "AAF.mp3"
     fileprefix = "SmoothCriminal" #Save a JSON file with this prefix
     artist1 = "Michael Jackson"
     artist2 = "Alien Ant Farm"
     songName = "Smooth Criminal"
-
+    """
+    
     """
     filename1 = "Eurythmics.mp3"
     filename2 = "MarilynManson.mp3"
@@ -127,6 +129,37 @@ if __name__ == '__main__':
     artist2 = "Marilyn Manson"
     fileprefix = "sweetdreams"
     songName = "Sweet Dreams"
+    """
+    
+    """
+    filename1 = "DejLoafTryMe.webm"
+    filename2 = "BlackBearTryMe.m4a"
+    artist1 = "Dej Loaf"
+    artist2 = "BlackBear"
+    fileprefix = "tryme"
+    songName = "Try Me"
+    """
+    
+    """
+    filename1 = "WakaNoHands.webm"
+    filename2 = "DannyVolaNoHands.m4a"
+    artist1 = "Waka Flocka Flame"
+    artist2 = "Danny Vola"
+    fileprefix = "nohands"
+    songName = "No Hands"
+    """
+    
+    """
+    #filename1 = "VivaldiLaFolia.webm"
+    #filename2 = "VivaldiLaFolia.webm"
+    filename1 = "LaFolia1.mp3"
+    filename2 = "LaFolia2.mp3"
+    artist1 = "Vivaldi"
+    artist2 = "Vivaldi"
+    fileprefix = "LaFolia"
+    songName = "La Folia"
+    TempoBias1 = 0
+    TempoBias2 = 0
     """
 
     """
@@ -146,7 +179,33 @@ if __name__ == '__main__':
     fileprefix = "blurred"
     songName = "Blurred Lines"
     """
+    
+    """
+    filename1 = "TotoOrig.webm"
+    filename2 = "TotoCover.mp3"
+    fileprefix = "Toto" #Save a JSON file with this prefix
+    artist1 = "Toto"
+    artist2 = "Leo Moracchioli feat. Rabea & Hannah"
+    songName = "Africa"
+    """
+    
+    """
+    filename1 = "ELPOrig.webm"
+    artist1 = "Emerson, Lake & Palmer"
+    #filename2 = "ELPMarchingBand.m4a"
+    #artist2 = "Tom Wallace"
+    filename2 = "ELPCover2.webm"
+    artist2 = "Paul Gilbert"
+    fileprefix = "KarnEvil9"
+    songName = "Karn Evil 9"
+    """
 
+    filename1 = "MJBad.mp3"
+    filename2 = "SmoothCriminalMJ.mp3"
+    fileprefix = "MJCross" #Save a JSON file with this prefix
+    artist1 = "Michael Jackson - Bad"
+    artist2 = "Michael Jackson - Smooth Criminal"
+    songName = "MJ"
 
     FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
