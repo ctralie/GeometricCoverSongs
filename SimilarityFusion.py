@@ -221,7 +221,8 @@ def doSimilarityFusionWs(Ws, K = 5, NIters = 20, regDiag = 1, regNeighbs = 0.0, 
     FusedScores = np.zeros(Pts[0].shape)
     for Pt in Pts:
         FusedScores += Pt
-    return FusedScores/N
+    res = FusedScores/N
+    return 0.5*(res + res.T) # Numerical precision causes this to not be perfectly symmetric
 
 def doSimilarityFusion(Scores, K = 5, NIters = 20, regDiag = 1, regNeighbs = 0.0, PlotNames = []):
     """

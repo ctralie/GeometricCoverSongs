@@ -3,16 +3,36 @@ from scipy import sparse
 from scipy.sparse.linalg import lsqr, cg, eigsh
 import matplotlib.pyplot as plt 
 
-def getLaplacianEigs(A, NEigs):
-    DEG = sparse.dia_matrix((A.sum(1).flatten(), 0), A.shape)
-    L = DEG - A
+def getLaplacianEigsSparse(I, J, V, M, NEigs):
+    """
+    Create the sparse graph Laplacian from an adjacency matrix, and compute
+    the NEigs eigenvectors of that matrix with the smallest eigenvalues
+    Parameters
+    ----------
+    I : ndarray (N)
+        Row indices
+    J : ndarray (N)
+        Column indices
+    V : ndarray (N)
+        Adjacency matrix entries
+    M : int
+        Dimension of adjacency matrix
+    NEigs : int
+        Number of eigenvectors to compute
+    """
+    DEG = sparse.coo_matrix((V, (I, I)), shape=(M, M))
+    LI = np.concatenate((I, DEG.row))
+    LJ = np.concatenate((J, DEG.col))
+    LV = np.concatenate((-V, DEG.data))
+    L = sparse.coo_matrix((LV, (LI, LJ)), shape=(M, M))
+    L = L.tocsc()
     w, v = eigsh(L, k=NEigs, sigma = 0, which = 'LM')
     return (w, v, L)
 
 def getLaplacianEigsDense(A, NEigs):
     DEG = sparse.dia_matrix((A.sum(1).flatten(), 0), A.shape)
     L = DEG.toarray() - A
-    w, v = eigsh(L, k=NEigs)
+    w, v = np.linalg.eigh(L)
     return (w[0:NEigs], v[:, 0:NEigs], L)
 
 def getHeat(eigvalues, eigvectors, t, initialVertices, heatValue = 100.0):

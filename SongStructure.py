@@ -4,6 +4,7 @@ Purpose: To provide an interface for loading music, computing features, and
 doing similarity fusion on those features to make a weighted adjacency matrix
 """
 import numpy as np
+from scipy import sparse 
 import matplotlib.pyplot as plt
 import scipy.io as sio
 import librosa
@@ -18,6 +19,7 @@ import os
 import json
 import subprocess
 from sklearn.decomposition import PCA
+import time
 
 """
 TODO: Try SNF with different window lengths to better capture multiresolution structure
@@ -156,7 +158,7 @@ def getFusedSimilarityHKS(XAudio, Fs, hopSize, winFac, winsPerBlock, K, NEigs, s
 
 if __name__ == '__main__':
     hopSize=512
-    winFac = 5
+    winFac = 10
     winsPerBlock = 20
     K = 20
     NEigs = 20
@@ -167,8 +169,7 @@ if __name__ == '__main__':
     alpha = float(lims[1]/lims[0])**(1.0/T)
     ss = lims[0]*alpha**np.arange(T)
     # Come up with log-sampled time scale limits
-    ts = np.linspace(0, 1, 100)
-    ss = np.linspace(0, 10, T)
+    ts = np.linspace(0, 1, 101)[1::]
 
     print("Getting HKS for song 1...")
     XAudio1, Fs = getAudioLibrosa("CSMViewer/MJ.mp3")
@@ -192,25 +193,35 @@ if __name__ == '__main__':
 
 
 
-
     W = W2
     N = W.shape[0]
-    tdiff = np.linspace(0, 1, N)
-    I, J = np.meshgrid(tdiff, tdiff)
-    tdiffs = np.abs(I-J)
+    I, J = np.meshgrid(np.arange(N), np.arange(N))
+    eps = 1e-4
+    #I = I[W > eps]
+    #J = J[W > eps]
+    # = W[W > eps]
+    print("Sparsity: %g"%(float(J.size)/(N*N)))
     S = ss.size
     T = ts.size
     plt.figure(figsize=(12, 12))
-    idxs = [400, 500, 600, 1240]
-    for i, t in enumerate(ts):
-        thisW = W*(tdiffs < t)
-        (eigvalues, eigvectors, L) = getLaplacianEigsDense(thisW, NEigs)
+    idxs = [200, 250, 300, 620]
+    times = ts*N
+    for i, t in enumerate(times):
+        thisI = I[np.abs(I-J) <= t]
+        thisJ = J[np.abs(I-J) <= t]
+        thisW = W[np.abs(I-J) <= t]
+        #(eigvalues, eigvectors, L) = getLaplacianEigsSparse(thisI, thisJ, thisW, N, NEigs)
+        thisW = sparse.coo_matrix((thisW, (thisI, thisJ)), shape=(N, N))
+        tic = time.time()
+        (eigvalues, eigvectors, L) = getLaplacianEigsDense(thisW.toarray(), NEigs)
+        toc = time.time()
+        print("Elapsed Time Dense %.3g"%(toc-tic))
         hks = getHKS(eigvalues, eigvectors, ss, scaleinv=False)
         hks = np.log(hks)
         plt.clf()
         plt.subplot(221)
-        plt.imshow(thisW, cmap = 'afmhot')
-        plt.title("W")
+        plt.imshow(thisW.toarray(), cmap = 'afmhot')
+        plt.title("L")
         for idx in idxs:
             plt.scatter(idx, idx, 50)
         plt.subplot(222)
