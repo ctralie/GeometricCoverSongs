@@ -4,6 +4,7 @@ Purpose: To provide an interface for loading music, computing features, and
 doing similarity fusion on those features to make a weighted adjacency matrix
 """
 import numpy as np
+import scipy.ndimage
 from scipy import sparse 
 import matplotlib.pyplot as plt
 import scipy.io as sio
@@ -20,10 +21,44 @@ import json
 import subprocess
 from sklearn.decomposition import PCA
 import time
+from ripser import ripser, plot_dgms
+from DGMTools import *
+from Scattering import *
 
 """
 TODO: Try SNF with different window lengths to better capture multiresolution structure
 """
+
+def imresize(D, dims, kind='cubic', use_scipy=False):
+    """
+    Resize a floating point image
+    Parameters
+    ----------
+    D : ndarray(M1, N1)
+        Original image
+    dims : tuple(M2, N2)
+        The dimensions to which to resize
+    kind : string
+        The kind of interpolation to use
+    use_scipy : boolean
+        Fall back to scipy.misc.imresize.  This is a bad idea
+        because it casts everything to uint8, but it's what I
+        was doing accidentally for a while
+    Returns
+    -------
+    D2 : ndarray(M2, N2)
+        A resized array
+    """
+    if use_scipy:
+        return scipy.misc.imresize(D, dims)
+    else:
+        M, N = dims
+        x1 = np.array(0.5 + np.arange(D.shape[1]), dtype=np.float32)/D.shape[1]
+        y1 = np.array(0.5 + np.arange(D.shape[0]), dtype=np.float32)/D.shape[0]
+        x2 = np.array(0.5 + np.arange(N), dtype=np.float32)/N
+        y2 = np.array(0.5 + np.arange(M), dtype=np.float32)/M
+        f = scipy.interpolate.interp2d(x1, y1, D, kind=kind)
+        return f(x2, y2)
 
 class PrettyFloat(float):
     def __repr__(self):
@@ -98,35 +133,7 @@ def exportToLoopDitty(XAudio, Fs, hopSize, winFac, pX, outfilename):
     fout.write(json.dumps(res))
     fout.close()
 
-
-def getFusedSimilarityHKS(XAudio, Fs, hopSize, winFac, winsPerBlock, K, NEigs, ss):
-    """
-    Come up with a representation of recurrence based on similarity network fusion (SNF) 
-    of averaged/stack delayed Chromas and MFCCs, and compute the HKS of this using
-    the weighted Laplacian
-
-    Parameters
-    ----------
-    XAudio: ndarray (NSamples, 1)
-        An array of mono audio samples
-    Fs: int
-        Sample rate
-    hopSize: int
-        Hop size
-    winFac: int
-        Number of frames to average (i.e. factor by which to downsample)
-    winsPerBlock: int 
-        Number of aggregated windows per sliding window block
-    K: int
-        Number of nearest neighbors in SNF
-    NEigs: int
-        Number of eigenvectors to use in HKS
-    ss: ndarray (S, 1)
-        An array of spatial scales at which to sample the HKS
-    """
-    XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
-    XMFCC = getMFCCsLibrosa(XAudio, Fs, int(Fs/4), hopSize, lifterexp = 0.6, NMFCC = 20)
-
+def getFusedSimilarity(XMFCC, XChroma, winFac, winsPerBlock, K):
     #Compute features in intervals evenly spaced by the hop size
     #but average within "winFac" intervals of hopSize
     N = min(XMFCC.shape[1], XChroma.shape[1])
@@ -150,132 +157,213 @@ def getFusedSimilarityHKS(XAudio, Fs, hopSize, winFac, winsPerBlock, K, NEigs, s
 
     #Run similarity network fusion
     Ds = [DMFCC, DChroma]
-    WFused = doSimilarityFusion(Ds, K = K, NIters = 10, regDiag = 1, regNeighbs=0.0)
-    np.fill_diagonal(WFused, 0)
-    (eigvalues, eigvectors, L) = getLaplacianEigsDense(WFused, NEigs)
-    hks = getHKS(eigvalues, eigvectors, ss, scaleinv=False)
-    return {'hks':hks, 'W':WFused, 'eigvalues':eigvalues, 'eigvectors':eigvectors}
+    WFused = doSimilarityFusion(Ds, K = K, NIters = 10, regDiag = 1, regNeighbs=0.5)
+    return WFused
 
-if __name__ == '__main__':
+
+def getFusedSimilarityAudio(XAudio, Fs, hopSize, winFac, winsPerBlock, K):
+    """
+    Come up with a representation of recurrence based on similarity network fusion (SNF) 
+    of averaged/stack delayed Chromas and MFCCs
+
+    Parameters
+    ----------
+    XAudio: ndarray (NSamples, 1)
+        An array of mono audio samples
+    Fs: int
+        Sample rate
+    hopSize: int
+        Hop size
+    winFac: int
+        Number of frames to average (i.e. factor by which to downsample)
+    winsPerBlock: int 
+        Number of aggregated windows per sliding window block
+    K: int
+        Number of nearest neighbors in SNF
+    """
+    XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = 12)
+    XMFCC = getMFCCsLibrosa(XAudio, Fs, int(Fs/4), hopSize, lifterexp = 0.6, NMFCC = 20)
+    return getFusedSimilarity(XMFCC, XChroma, winFac, winsPerBlock, K)
+
+
+def promoteDiagonal(W, bias):
+    """
+    Make things off diagonal less similar
+    """
+    N = W.shape[0]
+    I, J = np.meshgrid(np.arange(N), np.arange(N))
+    weight = bias + (1.0-bias)*(1.0 - np.abs(I-J)/float(N))
+    weight = weight**4
+    return weight*W
+
+def getCovers1000DGms(winFac, winsPerBlock, K, bias):
+    from Covers1000 import getSongPrefixes
+    AllSongs = getSongPrefixes()
+    plt.figure(figsize=(12, 4))
+    for i, filePrefix in enumerate(AllSongs):
+        matfilename = "%s_DGMs_Raw.mat"%filePrefix
+        if os.path.exists(matfilename):
+            print("Skipping %i"%i)
+            continue
+        tic = time.time()
+        print("Computing features for %i of %i..."%(i, len(AllSongs)))
+        print("filePrefix = %s"%filePrefix)
+        X = sio.loadmat("%s_MFCC.mat"%filePrefix)
+        XMFCC = X['XMFCC']
+        X = sio.loadmat("%s_HPCP.mat"%filePrefix)
+        XChroma = X['XHPCP']
+        W = getFusedSimilarity(XMFCC, XChroma, winFac, winsPerBlock, K)
+        #W = promoteDiagonal(W, bias)
+        np.fill_diagonal(W, 0)
+        IRips = ripser(-W, distance_matrix=True, maxdim=1)['dgms'][1]
+        [X, Y] = np.meshgrid(np.arange(W.shape[0]), np.arange(W.shape[1]))
+        W[X < Y] = 0
+        IMorse = doImageSublevelsetFiltration(-W)
+        toc = time.time()
+        print("Elapsed Time: %.3g"%(toc-tic))
+        sio.savemat(matfilename, {"IRips":IRips, "IMorse":IMorse})
+        
+        plt.clf()
+        plt.subplot(131)
+        plt.imshow(np.log(W+5e-2), cmap = 'afmhot')
+        plt.subplot(132)
+        plt.scatter(IRips[:, 0], IRips[:, 1])
+        plt.title("Rips (%i points)"%(IRips.shape[0]))
+        plt.subplot(133)
+        plt.scatter(IMorse[:, 0], IMorse[:, 1])
+        plt.title("Superlevelset Filtration (%i points)"%IMorse.shape[0])
+        plt.savefig("%s_DGMS_Raw.png"%filePrefix, bbox_inches='tight')
+
+def compareCovers1000Dgms():
+    from Covers1000 import getSongPrefixes
+    AllSongs = getSongPrefixes()
+    AllPIs = []
+    persThresh = 0.02
+    for i, filePrefix in enumerate(AllSongs):
+        print("Getting persistence image %i of %i"%(i, len(AllSongs)))
+        matfilename = "%s_DGMs.mat"%filePrefix
+        res = sio.loadmat(matfilename)
+        IRips, IMorse = res['IRips'], res['IMorse']
+        I = IRips
+        if I.size > 0:
+            I = I[np.abs(I[:, 0]-I[:, 1])>persThresh, :]
+        PI = getPersistenceImage(I, [-1.5, 0, 0, 1.5], 0.05, psigma=0.1)['PI']
+        """
+        plt.subplot(121)
+        plot_dgms(I, lifetime=True)
+        plt.subplot(122)
+        plt.imshow(PI, cmap='afmhot')
+        plt.show()
+        """
+        AllPIs.append(PI.flatten())
+    AllPIs = np.array(AllPIs)
+    D = getCSM(AllPIs, AllPIs)
+    sio.savemat("Covers1000PIs.mat", {"D":D})
+
+
+def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
+    from Covers1000 import getSongPrefixes
+    AllSongs = getSongPrefixes()
+    Ds = []
+    # Step 1: Compute all resized similarity images
+    for i, filePrefix in enumerate(AllSongs):
+        print("Computing features for %i of %i..."%(i, len(AllSongs)))
+        print("filePrefix = %s"%filePrefix)
+        X = sio.loadmat("%s_MFCC.mat"%filePrefix)
+        XMFCC = X['XMFCC']
+        X = sio.loadmat("%s_HPCP.mat"%filePrefix)
+        XChroma = X['XHPCP']
+        W = getFusedSimilarity(XMFCC, XChroma, winFac, winsPerBlock, K)
+        # Fill first two diagonals with zeros
+        pix = np.arange(W.shape[0])
+        I, J = np.meshgrid(pix, pix)
+        W[np.abs(I - J) <= 1] = 0
+        Ds.append(imresize(W, (512, 512)))
+    # Step 2: Compute scattering transforms
+    AllScattering = getScatteringTransform(Ds)
+    EuclideanFeats = []
+    ScatteringFeats = []
+    ScatteringFeatsPooled = []
+    plt.figure(figsize=(15, 10))
+    for i, (filePrefix, images) in enumerate(zip(AllSongs, AllScattering)):
+        EuclideanFeats.append(Ds[i].flatten())
+        print("Saving scattering transform for %s"%filePrefix)
+        scattering = np.array([])
+        scatteringpooled = np.array([np.mean(images[0])])
+        plt.clf()
+        plt.subplot(2, len(images), len(images)+1)
+        plt.imshow(Ds[i], cmap = 'afmhot')
+        plt.title("Original")
+        for k in range(len(images)):
+            scattering = np.concatenate((scattering, images[k].flatten()))
+            plt.subplot(2, len(images), k+1)
+            plt.imshow(images[k], cmap='afmhot')
+            plt.title("Scattering %i"%k)
+            if k > 0:
+                plt.subplot(2, len(images), len(images)+1+k)
+                pooled = poolFeatures(images[k], images[0].shape[0])
+                plt.imshow(pooled, cmap = 'afmhot')
+                scatteringpooled = np.concatenate((scatteringpooled, pooled.flatten()))
+                plt.title("Scattering %i Pooled"%k)
+            plt.savefig("%s_Scattering.png"%filePrefix, bbox_inches='tight')
+        ScatteringFeats.append(scattering.flatten())
+        ScatteringFeatsPooled.append(scatteringpooled.flatten())
+    EuclideanFeats = np.array(EuclideanFeats)
+    ScatteringFeats = np.array(ScatteringFeats)
+    ScatteringFeatsPooled = np.array(ScatteringFeatsPooled)
+    sio.savemat("Covers1000Euclidean.mat", {"D":getCSM(EuclideanFeats, EuclideanFeats)})
+    sio.savemat("Covers1000Scattering.mat", {"D":getCSM(ScatteringFeats, ScatteringFeats)})
+    sio.savemat("Covers1000ScatteringPooled.mat", {"D":getCSM(ScatteringFeatsPooled, ScatteringFeatsPooled)})
+        
+
+def doMJExample():
     hopSize=512
     winFac = 10
     winsPerBlock = 20
     K = 20
-    NEigs = 20
+    pooling = True
 
-    # Come up with log-sampled spatial scale limits
-    lims = [0.1, 2]
-    T = 200
-    alpha = float(lims[1]/lims[0])**(1.0/T)
-    ss = lims[0]*alpha**np.arange(T)
-    # Come up with log-sampled time scale limits
-    ts = np.linspace(0, 1, 101)[1::]
-
-    print("Getting HKS for song 1...")
+    print("Getting fused SSM for song 1...")
     XAudio1, Fs = getAudioLibrosa("CSMViewer/MJ.mp3")
-    res = getFusedSimilarityHKS(XAudio1, Fs, hopSize, winFac, winsPerBlock, K, NEigs, ss)
-    hks1 = res['hks']
-    W1 = res['W']
-    hks1 = np.log(hks1)
-    #hks1 = np.abs(np.fft.fft(hks1, axis=1))[:, 1::]
+    W1 = getFusedSimilarityAudio(XAudio1, Fs, hopSize, winFac, winsPerBlock, K)
+    np.fill_diagonal(W1, 0)
 
-
-    print("Getting HKS for song 2...")
-    XAudio2, Fs = getAudioLibrosa("CSMViewer/AAF.mp3")
-    res = getFusedSimilarityHKS(XAudio2, Fs, hopSize, winFac, winsPerBlock, K, NEigs, ss)
-    hks2 = res['hks']
-    W2 = res['W']
-    hks2 = np.log(hks2)
-    #hks2 = np.abs(np.fft.fft(hks2, axis=1))[:, 1::]
-
-    sio.savemat('hks.mat', {'hks1':hks1, 'hks2':hks2, 'W1':W1, 'W2':W2})
-
-
-
-
-    W = W2
-    N = W.shape[0]
-    I, J = np.meshgrid(np.arange(N), np.arange(N))
-    eps = 1e-4
-    #I = I[W > eps]
-    #J = J[W > eps]
-    # = W[W > eps]
-    print("Sparsity: %g"%(float(J.size)/(N*N)))
-    S = ss.size
-    T = ts.size
-    plt.figure(figsize=(12, 12))
-    idxs = [200, 250, 300, 620]
-    times = ts*N
-    for i, t in enumerate(times):
-        thisI = I[np.abs(I-J) <= t]
-        thisJ = J[np.abs(I-J) <= t]
-        thisW = W[np.abs(I-J) <= t]
-        #(eigvalues, eigvectors, L) = getLaplacianEigsSparse(thisI, thisJ, thisW, N, NEigs)
-        thisW = sparse.coo_matrix((thisW, (thisI, thisJ)), shape=(N, N))
-        tic = time.time()
-        (eigvalues, eigvectors, L) = getLaplacianEigsDense(thisW.toarray(), NEigs)
-        toc = time.time()
-        print("Elapsed Time Dense %.3g"%(toc-tic))
-        hks = getHKS(eigvalues, eigvectors, ss, scaleinv=False)
-        hks = np.log(hks)
-        plt.clf()
-        plt.subplot(221)
-        plt.imshow(thisW.toarray(), cmap = 'afmhot')
-        plt.title("L")
-        for idx in idxs:
-            plt.scatter(idx, idx, 50)
-        plt.subplot(222)
-        plt.imshow(hks, aspect='auto')
-        plt.title("HKS")
-        plt.subplot(223)
-        for idx in idxs:
-            plt.plot(hks[idx, :])
-        plt.subplot(224)
-        plt.plot(eigvalues)
-        plt.title("Eigenvalues")
-        plt.savefig("%i.png"%i, bbox_inches='tight')
-
-
-    print("Doing Smith Waterman...")
-    Kappa = 0.1
-    CSM = getCSM(hks1, hks2)
-    DBinary = CSMToBinaryMutual(CSM, Kappa)
-    import SequenceAlignment.SequenceAlignment as SA
-    #(maxD, D) = SA.swalignimpconstrained(DBinary)
-    plt.subplot(131)
-    plt.imshow(CSM, interpolation = 'nearest', cmap = 'afmhot')
-    plt.title('CSM')
-    plt.subplot(132)
-    plt.imshow(1-DBinary, interpolation = 'nearest', cmap = 'gray')
-    plt.title("CSM Binary, $\kappa$=%g"%Kappa)
-    plt.subplot(133)
-    #plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
-    #plt.title("Smith Waterman Score = %g"%maxD)
-    plt.show()
-
-    plt.subplot(221)
-    plt.imshow(W1, cmap = 'afmhot', interpolation='none')
-    plt.subplot(222)
-    plt.imshow(hks1, cmap = 'afmhot', interpolation='none', aspect='auto')
-    plt.subplot(223)
-    plt.imshow(W2, cmap = 'afmhot', interpolation='none')
-    plt.subplot(224)
-    plt.imshow(hks2, cmap = 'afmhot', interpolation='none', aspect='auto')
-    plt.show()
-
-    pca = PCA(n_components=3)
-    exportToLoopDitty(XAudio1, Fs, hopSize, winFac, pca.fit_transform(hks1), "MJhks.json")
-    exportToLoopDitty(XAudio2, Fs, hopSize, winFac, pca.fit_transform(hks2), "AAFhks.json")
+    print("Getting fused SSM for song 2...")
+    XAudio2, Fs = getAudioLibrosa("CSMViewer/MJBad.mp3")
+    W2 = getFusedSimilarityAudio(XAudio2, Fs, hopSize, winFac, winsPerBlock, K)
+    np.fill_diagonal(W2, 0)
 
     X1 = getDiffusionMap(W1)
     X2 = getDiffusionMap(W2)
-    plt.subplot(131)
-    plt.imshow(X1, cmap = 'afmhot', aspect='auto')
-    plt.subplot(132)
-    plt.imshow(X2, cmap = 'afmhot', aspect='auto')
-    plt.subplot(133)
-    plt.imshow(getCSM(X1[:, 0:-1], X2[:, 0:-1]), interpolation = 'nearest', cmap = 'afmhot')
+
+    Ds = [imresize(W1, (512, 512)), imresize(W2, (512, 512))]
+    images = getScatteringTransform(Ds)
+
+    plt.figure(figsize=(12, 12))
+    plt.subplot(241)
+    plt.imshow(np.log(W1+5e-2), cmap = 'afmhot')
+    plt.title("Song 1")
+    for i in range(3):
+        plt.subplot(2, 4, i+2)
+        if i > 0 and pooling:
+            images[0][i] = poolFeatures(images[0][i], images[0][0].shape[0])
+        plt.imshow(images[0][i], cmap = 'afmhot')
+    plt.subplot(245)
+    plt.imshow(np.log(W2+5e-2), cmap = 'afmhot')
+    for i in range(3):
+        plt.subplot(2, 4, i+6)
+        if i > 0 and pooling:
+            images[1][i] = poolFeatures(images[1][i], images[1][0].shape[0])
+        plt.imshow(images[1][i], cmap = 'afmhot')
+    plt.title("Song 2")
     plt.show()
 
-    exportToLoopDitty(XAudio1, Fs, hopSize, winFac, X1[:, -4:-1], "MJdiffusion.json")
-    exportToLoopDitty(XAudio2, Fs, hopSize, winFac, X2[:, -4:-1], "AAFdiffusion.json")
+    #exportToLoopDitty(XAudio1, Fs, hopSize, winFac, X1[:, -4:-1], "MJdiffusionDiag.json")
+    #exportToLoopDitty(XAudio2, Fs, hopSize, winFac, X2[:, -4:-1], "AAFdiffusionDiag.json")
+
+
+if __name__ == '__main__':
+    #doMJExample()
+    #getCovers1000DGms(winFac=10, winsPerBlock=20, K=20, bias=0.3)
+    getCovers1000Scattering(winFac=10, winsPerBlock=20, K=20, bias=0.3)
+    #compareCovers1000Dgms()
