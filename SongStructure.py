@@ -265,6 +265,7 @@ def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
     from Covers1000 import getSongPrefixes
     AllSongs = getSongPrefixes()
     Ds = []
+    res = 128
     # Step 1: Compute all resized similarity images
     for i, filePrefix in enumerate(AllSongs):
         print("Computing features for %i of %i..."%(i, len(AllSongs)))
@@ -274,19 +275,25 @@ def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
         X = sio.loadmat("%s_HPCP.mat"%filePrefix)
         XChroma = X['XHPCP']
         W = getFusedSimilarity(XMFCC, XChroma, winFac, winsPerBlock, K)
+        W[np.isnan(W)] = 1
         # Fill first two diagonals with zeros
         pix = np.arange(W.shape[0])
         I, J = np.meshgrid(pix, pix)
         W[np.abs(I - J) <= 1] = 0
-        Ds.append(imresize(W, (512, 512)))
+        Ds.append(imresize(W, (res, res)))
     # Step 2: Compute scattering transforms
-    AllScattering = getScatteringTransform(Ds)
-    EuclideanFeats = []
-    ScatteringFeats = []
-    ScatteringFeatsPooled = []
+    # Do in batches of 10
+    AllScattering = []
+    for i in range(len(AllSongs)/10):
+        AllScattering += getScatteringTransform(Ds[i*10:(i+1)*10])
+    EuclideanFeats = np.array([])
+    ScatteringFeats = np.array([])
+    ScatteringFeatsPooled = np.array([])
     plt.figure(figsize=(15, 10))
     for i, (filePrefix, images) in enumerate(zip(AllSongs, AllScattering)):
-        EuclideanFeats.append(Ds[i].flatten())
+        if EuclideanFeats.size == 0:
+            EuclideanFeats = np.zeros((len(AllSongs), Ds[i].size), dtype=np.float32)
+        EuclideanFeats[i, :] = Ds[i].flatten()
         print("Saving scattering transform for %s"%filePrefix)
         scattering = np.array([])
         scatteringpooled = np.array([np.mean(images[0])])
@@ -306,13 +313,17 @@ def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
                 scatteringpooled = np.concatenate((scatteringpooled, pooled.flatten()))
                 plt.title("Scattering %i Pooled"%k)
             plt.savefig("%s_Scattering.png"%filePrefix, bbox_inches='tight')
-        ScatteringFeats.append(scattering.flatten())
-        ScatteringFeatsPooled.append(scatteringpooled.flatten())
-    EuclideanFeats = np.array(EuclideanFeats)
-    ScatteringFeats = np.array(ScatteringFeats)
-    ScatteringFeatsPooled = np.array(ScatteringFeatsPooled)
+        if ScatteringFeats.size == 0:
+            ScatteringFeats = np.zeros((len(AllSongs), scattering.size), dtype=np.float32)
+            ScatteringFeatsPooled = np.zeros((len(AllSongs), scatteringpooled.size), dtype=np.float32)
+        scattering[np.isnan(scattering)] = 1
+        scatteringpooled[np.isnan(scatteringpooled)] = 1
+        ScatteringFeats[i, :] = scattering.flatten()
+        ScatteringFeatsPooled[i, :] = scatteringpooled.flatten()
     sio.savemat("Covers1000Euclidean.mat", {"D":getCSM(EuclideanFeats, EuclideanFeats)})
+    EuclideanFeats = None
     sio.savemat("Covers1000Scattering.mat", {"D":getCSM(ScatteringFeats, ScatteringFeats)})
+    ScatteringFeats = None
     sio.savemat("Covers1000ScatteringPooled.mat", {"D":getCSM(ScatteringFeatsPooled, ScatteringFeatsPooled)})
         
 
