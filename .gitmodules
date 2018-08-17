@@ -1,3 +1,6 @@
 [submodule "pyMIRBasic"]
 	path = pyMIRBasic
 	url = https://github.com/ctralie/pyMIRBasic.git
+[submodule "ExternalLibs/LargeScaleCoverSongId"]
+	path = ExternalLibs/LargeScaleCoverSongId
+	url = https://github.com/urinieto/LargeScaleCoverSongId.git

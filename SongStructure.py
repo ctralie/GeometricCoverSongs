@@ -265,7 +265,7 @@ def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
     from Covers1000 import getSongPrefixes
     AllSongs = getSongPrefixes()
     Ds = []
-    res = 128
+    res = 512
     # Step 1: Compute all resized similarity images
     for i, filePrefix in enumerate(AllSongs):
         print("Computing features for %i of %i..."%(i, len(AllSongs)))
@@ -285,7 +285,7 @@ def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
     # Do in batches of 10
     AllScattering = []
     for i in range(len(AllSongs)/10):
-        AllScattering += getScatteringTransform(Ds[i*10:(i+1)*10])
+        AllScattering += getScatteringTransform(Ds[i*10:(i+1)*10], renorm=False)
     EuclideanFeats = np.array([])
     ScatteringFeats = np.array([])
     ScatteringFeatsPooled = np.array([])
@@ -302,6 +302,10 @@ def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
         plt.imshow(Ds[i], cmap = 'afmhot')
         plt.title("Original")
         for k in range(len(images)):
+            norm = np.sqrt(np.sum(images[k]**2))
+            if norm == 0:
+                norm = 1
+            images[k] /= norm
             scattering = np.concatenate((scattering, images[k].flatten()))
             plt.subplot(2, len(images), k+1)
             plt.imshow(images[k], cmap='afmhot')
