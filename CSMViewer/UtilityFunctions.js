@@ -33,6 +33,7 @@ function setLoadingFailed() {
 //Base64 Functions
 //http://stackoverflow.com/questions/21797299/convert-base64-string-to-arraybuffer
 function base64ToArrayBuffer(base64) {
+    console.log(base64);
     var binary =  window.atob(base64);
     var len = binary.length;
     var bytes = new Uint8Array( len );

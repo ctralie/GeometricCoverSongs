@@ -87,6 +87,7 @@ def getCovers1000ChromaFTM2D(do_plots = False):
         Norm[Norm == 0] = 1
         feats = np.log(C*feats/Norm[:, None] + 1)
         feats = np.median(feats, 0) # Median aggregate
+        feats = feats/np.sqrt(np.sum(feats**2))
         AllFeats.append(feats.flatten())
 
         if do_plots:

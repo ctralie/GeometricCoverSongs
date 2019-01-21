@@ -29,37 +29,6 @@ from Scattering import *
 TODO: Try SNF with different window lengths to better capture multiresolution structure
 """
 
-def imresize(D, dims, kind='cubic', use_scipy=False):
-    """
-    Resize a floating point image
-    Parameters
-    ----------
-    D : ndarray(M1, N1)
-        Original image
-    dims : tuple(M2, N2)
-        The dimensions to which to resize
-    kind : string
-        The kind of interpolation to use
-    use_scipy : boolean
-        Fall back to scipy.misc.imresize.  This is a bad idea
-        because it casts everything to uint8, but it's what I
-        was doing accidentally for a while
-    Returns
-    -------
-    D2 : ndarray(M2, N2)
-        A resized array
-    """
-    if use_scipy:
-        return scipy.misc.imresize(D, dims)
-    else:
-        M, N = dims
-        x1 = np.array(0.5 + np.arange(D.shape[1]), dtype=np.float32)/D.shape[1]
-        y1 = np.array(0.5 + np.arange(D.shape[0]), dtype=np.float32)/D.shape[0]
-        x2 = np.array(0.5 + np.arange(N), dtype=np.float32)/N
-        y2 = np.array(0.5 + np.arange(M), dtype=np.float32)/M
-        f = scipy.interpolate.interp2d(x1, y1, D, kind=kind)
-        return f(x2, y2)
-
 class PrettyFloat(float):
     def __repr__(self):
         return '%.4g' % self
@@ -261,7 +230,7 @@ def compareCovers1000Dgms():
     sio.savemat("Covers1000PIs.mat", {"D":D})
 
 
-def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
+def getCovers1000Scattering(winFac, winsPerBlock, K, newres):
     from Covers1000 import getSongPrefixes
     AllSongs = getSongPrefixes()
     Ds = []
@@ -285,6 +254,7 @@ def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
     # Do in batches of 10
     AllScattering = []
     for i in range(len(AllSongs)/10):
+        print("Doing scattering transform batch %i of %i"%(i+1, len(AllSongs)/10))
         AllScattering += getScatteringTransform(Ds[i*10:(i+1)*10], renorm=False)
     EuclideanFeats = np.array([])
     ScatteringFeats = np.array([])
@@ -296,12 +266,13 @@ def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
         EuclideanFeats[i, :] = Ds[i].flatten()
         print("Saving scattering transform for %s"%filePrefix)
         scattering = np.array([])
-        scatteringpooled = np.array([np.mean(images[0])])
-        plt.clf()
-        plt.subplot(2, len(images), len(images)+1)
-        plt.imshow(Ds[i], cmap = 'afmhot')
-        plt.title("Original")
+        scatteringpooled = images[0].flatten()#averageFeatures(images[0], images[0].shape[0], newres).flatten()
+        #plt.clf()
+        #plt.subplot(2, len(images), len(images)+1)
+        #plt.imshow(Ds[i], cmap = 'afmhot')
+        #plt.title("Original")
         for k in range(len(images)):
+            # Z normalize all of the coefficients in a path
             norm = np.sqrt(np.sum(images[k]**2))
             if norm == 0:
                 norm = 1
@@ -311,23 +282,23 @@ def getCovers1000Scattering(winFac, winsPerBlock, K, bias):
             plt.imshow(images[k], cmap='afmhot')
             plt.title("Scattering %i"%k)
             if k > 0:
-                plt.subplot(2, len(images), len(images)+1+k)
-                pooled = poolFeatures(images[k], images[0].shape[0])
-                plt.imshow(pooled, cmap = 'afmhot')
+                #plt.subplot(2, len(images), len(images)+1+k)
+                pooled = averageFeatures(images[k], images[0].shape[0], newres)
+                #plt.imshow(pooled, cmap = 'afmhot')
                 scatteringpooled = np.concatenate((scatteringpooled, pooled.flatten()))
-                plt.title("Scattering %i Pooled"%k)
-            plt.savefig("%s_Scattering.png"%filePrefix, bbox_inches='tight')
-        if ScatteringFeats.size == 0:
-            ScatteringFeats = np.zeros((len(AllSongs), scattering.size), dtype=np.float32)
+                #plt.title("Scattering %i Pooled"%k)
+            #plt.savefig("%s_Scattering.png"%filePrefix, bbox_inches='tight')
+        if ScatteringFeatsPooled.size == 0:
+            #ScatteringFeats = np.zeros((len(AllSongs), scattering.size), dtype=np.float32)
             ScatteringFeatsPooled = np.zeros((len(AllSongs), scatteringpooled.size), dtype=np.float32)
-        scattering[np.isnan(scattering)] = 1
+        #scattering[np.isnan(scattering)] = 1
         scatteringpooled[np.isnan(scatteringpooled)] = 1
-        ScatteringFeats[i, :] = scattering.flatten()
+        #ScatteringFeats[i, :] = scattering.flatten()
         ScatteringFeatsPooled[i, :] = scatteringpooled.flatten()
     sio.savemat("Covers1000Euclidean.mat", {"D":getCSM(EuclideanFeats, EuclideanFeats)})
     EuclideanFeats = None
-    sio.savemat("Covers1000Scattering.mat", {"D":getCSM(ScatteringFeats, ScatteringFeats)})
-    ScatteringFeats = None
+    #sio.savemat("Covers1000Scattering.mat", {"D":getCSM(ScatteringFeats, ScatteringFeats)})
+    #ScatteringFeats = None
     sio.savemat("Covers1000ScatteringPooled.mat", {"D":getCSM(ScatteringFeatsPooled, ScatteringFeatsPooled)})
         
 
@@ -380,5 +351,6 @@ def doMJExample():
 if __name__ == '__main__':
     #doMJExample()
     #getCovers1000DGms(winFac=10, winsPerBlock=20, K=20, bias=0.3)
-    getCovers1000Scattering(winFac=10, winsPerBlock=20, K=20, bias=0.3)
+    #TODO: Don't average the lowpass coefficients
+    getCovers1000Scattering(winFac=10, winsPerBlock=20, K=20, newres=16)
     #compareCovers1000Dgms()
