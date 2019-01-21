@@ -15,6 +15,7 @@ from BlockWindowFeatures import *
 from pyMIRBasic.Onsets import *
 from pyMIRBasic.AudioIO import *
 import json
+import argparse
 
 
 def getBase64File(filename):
@@ -107,48 +108,19 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
     fout.close()
 
 if __name__ == '__main__':
-    Kappa = 0.1
-    hopSize = 512
-    TempoBias1 = 120
-    TempoBias2 = 120
-
-    #File information (change this to try songs of your choosing)
-    filename1 = "MJ.mp3"
-    filename2 = "AAF.mp3"
-    fileprefix = "SmoothCriminal" #Save a JSON file with this prefix
-    artist1 = "Michael Jackson"
-    artist2 = "Alien Ant Farm"
-    songName = "Smooth Criminal"
-
-    """
-    filename1 = "Eurythmics.mp3"
-    filename2 = "MarilynManson.mp3"
-    artist1 = "Eurythmics"
-    artist2 = "Marilyn Manson"
-    fileprefix = "sweetdreams"
-    songName = "Sweet Dreams"
-    """
-
-    """
-    filename1 = "BadCompany.mp3"
-    filename2 = "BadCompanyFive.mp3"
-    artist1 = "Bad Company"
-    artist2 = "Five Finger Discount"
-    fileprefix = "badcompany"
-    songName = "Bad Company"
-    """
-    
-    """
-    filename1 = "BlurredLines.mp3"
-    filename2 = "GotToGiveItUp.mp3"
-    artist1 = "Robin Thicke"
-    artist2 = "Marvin Gaye"
-    fileprefix = "blurred"
-    songName = "Blurred Lines"
-    """
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--filename1', type=str, required=True, help="Path to audio file for first song")
+    parser.add_argument('--filename2', type=str, required=True, help="Path to audio file for first song")
+    parser.add_argument('--jsonfilename', type=str, required=True, help="Output name of json file")
+    parser.add_argument('--artist1', type=str, default="Artist 1", help="Name of the artist of the first song")
+    parser.add_argument('--artist2', type=str, default="Artist 2", help="Name of the artist of the second song")
+    parser.add_argument('--tempobias1', type=int, default=120, help="Tempo bias of the beat tracker for the first song")
+    parser.add_argument('--tempobias2', type=int, default=120, help="Tempo bias of the beat tracker for the second song")
+    parser.add_argument('--hopsize', type=int, default=512, help="Hop size to use for the features")
+    parser.add_argument('--kappa', type=float, default=0.1, help="Nearest neighbor threshold")
+    opt = parser.parse_args()
 
     FeatureParams = {'MFCCBeatsPerBlock':20, 'MFCCSamplesPerBlock':200, 'DPixels':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40}
     CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'SSMsDiffusion':'Euclidean', 'Geodesics':'Euclidean', 'Jumps':'Euclidean', 'Curvs':'Euclidean', 'Tors':'Euclidean', 'CurvsSS':'Euclidean', 'TorsSS':'Euclidean', 'D2s':'EMD1D', 'Chromas':'CosineOTI'}
 
-    compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, "%s.json"%fileprefix, artist1, artist2)
+    compareTwoSongsJSON(opt.filename1, opt.tempobias1, opt.filename2, opt.tempobias2, opt.hopsize, FeatureParams, CSMTypes, opt.kappa, opt.jsonfilename, opt.artist1, opt.artist2)
