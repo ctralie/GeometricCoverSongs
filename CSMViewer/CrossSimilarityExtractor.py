@@ -16,12 +16,12 @@ from pyMIRBasic.Onsets import *
 from pyMIRBasic.AudioIO import *
 import json
 import argparse
-
+import base64
 
 def getBase64File(filename):
     fin = open(filename, "rb")
     b = fin.read()
-    b = b.encode("base64")
+    b = base64.b64encode(b)
     fin.close()
     return b
 
@@ -73,8 +73,8 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
         CSMs['CSM'] = getBase64PNGImage(res['CSM'], 'afmhot')
         CSMs['DBinary'] = getBase64PNGImage(1-res['DBinary'], 'gray')
         CSMs['score'] = res['score']
-        FeatureCSMs[FeatureName] = CSMs;
-
+        FeatureCSMs[FeatureName] = CSMs
+    
     #Do OR Merging
     print("Doing OR Merging...")
     res = getCSMSmithWatermanScoresORMerge(Features1, O1, Features2, O2, Kappa, CSMTypes, True)
@@ -100,9 +100,17 @@ def compareTwoSongsJSON(filename1, TempoBias1, filename2, TempoBias2, hopSize, F
 
     Results['FeatureCSMs'] = FeatureCSMs
     print("Saving results...")
+    Results['beats1'] = list(Results['beats1'])
+    Results['beats2'] = list(Results['beats2']) 
+    for feature in ['MFCCs', 'SSMs', 'Chromas', 'ORFusion', 'SNF']:
+        for imgtype in ['D', 'CSM', 'DBinary']:
+            Results['FeatureCSMs'][feature][imgtype] = "data:image/png;base64, " + Results['FeatureCSMs'][feature][imgtype].decode('ascii')
+
     #Add music as base64 files
-    Results['file1'] = getBase64File(filename1)
-    Results['file2'] = getBase64File(filename2)
+    path, ext = os.path.splitext(filename1)
+    Results['file1'] = "data:audio/%s;base64, "%ext[1::] + getBase64File(filename1).decode('ascii')
+    path, ext = os.path.splitext(filename2)
+    Results['file2'] = "data:audio/%s;base64, "%ext[1::] + getBase64File(filename2).decode('ascii')
     fout = open(outfilename, "w")
     fout.write(json.dumps(Results))
     fout.close()

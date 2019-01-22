@@ -3,7 +3,8 @@
 <!--External Libraries!-->
 <script src="libs/interact.min.js"></script>
 <!--My Scripts!-->
-<script src="UtilityFunctions.js"></script>
+<script src="ProgressBar.js"></script>
+<script src="AudioObject.js"></script>
 <script src="CrossSimilarityCanvas.js"></script>
 <style>
 body {
@@ -16,6 +17,9 @@ body {
 
 <h1>Cover Songs Cross-Similarity GUI</h1>
 <h2>by Chris Tralie</h2>
+
+<audio id="audio_widget1"></audio>
+<audio id="audio_widget2"></audio>
 
 <table>
 <tr><td><h3>File Input</h3></td><td><input type = "file" id = "fileInput"></td><td colspan = "2"></td></tr>
@@ -42,7 +46,7 @@ body {
 <table>
 <tr>
 <td><button type = "button" onclick = "playAudioButton()">Play</button></td>
-<td><button type = "button" onclick = "pauseAudio()">Pause</button></td>
+<td><button type = "button" onclick = "pauseAudioButton()">Pause</button></td>
 <td colspan = "2"><h3><p id = "songname"></p></h3></td>
 </tr>
 </table>
@@ -58,170 +62,14 @@ body {
 </table>
 
 <script>
-    var source = null;
-    var analyser = null;
-    var context = new (window.AudioContext || window.webkitAudioContext)();
-    var buffer1 = null;
-    var buffer2 = null;
-    var waitingDisp = document.getElementById("pagestatus");
-    var playing = false;
-    var featureType = "";
-    var imageType = "CSM";
-    var FeatureCSMs = {};
-    var song1name = "";
-    var song2name = "";
-    var scoreTxt = document.getElementById("score");
-    var songnameTxt = document.getElementById("songname");
-    var csmcanvas = document.getElementById('CrossSimilarityCanvas');
-    var dimsUpdated = false;
-
-    function disconnect() {
-        source.stop();
-        source.disconnect(0);
-        analyser.disconnect(0);
-    }
-
-    csmctx = csmcanvas.getContext('2d');
-	initCanvasHandlers();
-
-    function selectImage() {
-        if (featureType.length > 0) {
-            CSImage.src = "data:image/png;base64, " + (FeatureCSMs[featureType])[imageType];
-            dimsUpdated = 0;
-            requestAnimationFrame(updateCSMCanvas);
-            var score = FeatureCSMs[featureType].score;
-            score = Math.round(score*1000)/1000;
-            scoreTxt.innerHTML = score;
-        }
-    }
-
-    var selectFeatureType = document.getElementById("FeatureType");
-    selectFeatureType.addEventListener('change', function(e){
-        featureType = e.target.value;
-        selectImage();
-    });
-
-    var selectImageType = document.getElementById("ImageType");
-    selectImageType.addEventListener('change', function(e){
-        imageType = e.target.value;
-        selectImage();
-    });
-
-    var fileInput = document.getElementById('fileInput');
-	fileInput.addEventListener('change', function(e) {
-		var file = fileInput.files[0];
-		var reader = new FileReader();
-		reader.onload = function(e) {
-            var Results = JSON.parse(reader.result);
-            //Setup audio buffers
-            var arrayBuff = base64ToArrayBuffer(Results.file1);
-            decodeAudio(arrayBuff, 1);
-            arrayBuff = base64ToArrayBuffer(Results.file2);
-            decodeAudio(arrayBuff, 2);
-            bts1 = Results.beats1;
-            bts2 = Results.beats2;
-            song1name = Results.song1name;
-            song2name = Results.song2name;
-            FeatureCSMs = Results.FeatureCSMs;
-
-            //Remove all feature types from the last time if they exit;
-            for (var i = selectFeatureType.options.length - 1; i >= 0; i--) {
-                selectFeatureType.remove(i);
-            }
-
-            for (val in FeatureCSMs) {
-                var option = document.createElement('option');
-                option.text = val;
-                selectFeatureType.add(option, val);
-                featureType = val;
-            }
-            featureType = selectFeatureType.value; //Display the currently selected feature
-
-
-            imageType = "CSM";
-            selectImage();
-            changeToReady();
-		}
-		reader.readAsText(file);
-	});
-
+    var csmcanvas = new CSMCanvas();
 
     function playAudioButton() {
-        if (!playing) {
-            //Prevent the user from accidentally playing multiple audio streams
-            if (playing1) {
-                playAudio(1);
-            }
-            else {
-                playAudio(2);
-            }
-        }
+        csmcanvas.playAudio();
     }
 
-    function pauseAudio() {
-        console.log("Pausing");
-        if (source === null) {
-            return;
-        }
-        playing = false;
-        source.stop();
-    }
-
-    function playAudio(songidx) {
-        if (context === null) {
-            return;
-        }
-        playing = true;
-        source = context.createBufferSource();
-        if (songidx == 1) {
-            source.buffer = buffer1;
-            playing1 = true;
-            offsetTime = bts1[offset1idx];
-            songnameTxt.innerHTML = song1name;
-        }
-        else {
-            source.buffer = buffer2;
-            playing1 = false;
-            offsetTime = bts2[offset2idx];
-            songnameTxt.innerHTML = song2name;
-        }
-        console.log("Playing audio, offsetTime = " + offsetTime);
-        analyser = context.createAnalyser();
-        source.connect(analyser);
-        analyser.connect(context.destination);
-
-        startTime = context.currentTime;
-
-        //setTimeout(disconnect, source.buffer.duration * 1000 +1000);
-        source.start(context.currentTime, offsetTime, source.buffer.duration - offsetTime);
-
-        playIdx = 0;
-        playIdxCSM = 0;
-        //requestAnimFrame(function(){repaintWithContext(context)});
-        requestAnimationFrame(updateCSMCanvas);
-    }
-
-    function decodeAudio(arrayBuff, target) {
-        if(context.decodeAudioData) {
-            context.decodeAudioData(arrayBuff, function(buff) {
-                if (target == 1) {
-                    buffer1 = buff;
-                }
-                else {
-                    buffer2 = buff;
-                }
-            }, function(e) {
-                console.log(e);
-            });
-        }
-        else {
-            if (target == 1) {
-                buffer1 = context.createBuffer(1, 22050, 44100);
-            }
-            else {
-                buffer2 = context.createBuffer(1, 22050, 44100);
-            }
-        }
+    function pauseAudioButton() {
+        csmcanvas.pauseAudio();
     }
 </script>
 
