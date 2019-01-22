@@ -50,9 +50,4 @@ function AudioObject(songidx, bts, name, src) {
 		this.btidx = btidx;
 		this.widget.currentTime = this.bts[btidx];
 	}
-
-	/** Jump audio to the onset of the current beat index */
-	this.jumpToCurrentBeat = function() {
-		this.jumpToBeat(this.btidx);
-	}
 }

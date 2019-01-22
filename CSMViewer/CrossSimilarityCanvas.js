@@ -45,12 +45,13 @@ function CSMCanvas() {
         }
 	}
 
+	/**
+	 * Set the currently selected song to play and start the animation loop
+	 */
 	this.playAudio = function() {
 		this.playing = true;
 		var audio1 = this.audio_widgets[this.playIdx];
 		var audio2 = this.audio_widgets[(this.playIdx+1)%2];
-		audio1.jumpToCurrentBeat();
-		audio2.jumpToCurrentBeat();
 		audio1.play();
 		audio2.pause();
 		audio1.btidx = 0;
@@ -58,6 +59,9 @@ function CSMCanvas() {
         requestAnimationFrame(this.updateCSMCanvas.bind(this));
 	}
 
+	/**
+	 * Pause all audio
+	 */
 	this.pauseAudio = function() {
 		this.playing = false;
 		for (var i = 0; i < 2; i++) {
@@ -65,7 +69,9 @@ function CSMCanvas() {
 		}
 	}
 
-	//Functions to handle mouse motion
+	/**
+	 * Handle clicks on the canvas to jump around in the songs
+	 */
 	this.releaseClickCSM = function(evt) {
 		evt.preventDefault();
 		var offsetidxs = [evt.offsetY, evt.offsetX];
@@ -89,11 +95,11 @@ function CSMCanvas() {
 		if (clickType == "RIGHT") {
 			this.playIdx = 1;
 		}
+		this.audio_widgets[this.playIdx].jumpToBeat(offsetidxs[this.playIdx]);
+		this.redrawCSMCanvas();
 		if (this.playing) {
-			this.audio_widgets[this.playIdx].jumpToBeat(offsetidxs[this.playIdx]);
 			this.playAudio();
 		}
-		this.redrawCSMCanvas();
 		return false;
 	}
 
@@ -107,6 +113,9 @@ function CSMCanvas() {
 		return false;
 	}
 
+	/**
+	 * Initialize all mouse/touch listeners
+	 */
 	this.initCanvasHandlers = function() {
 		var canvas = document.getElementById('CrossSimilarityCanvas');
 		this.canvas.addEventListener("contextmenu", function(e){ e.stopPropagation(); e.preventDefault(); return false; }); //Need this to disable the menu that pops up on right clicking
@@ -121,6 +130,9 @@ function CSMCanvas() {
 		this.canvas.addEventListener('contextmenu', function dummy(e) { return false });
 	}
 
+	/**
+	 * Initialize the menu handlers for changing display type and for loading JSON files
+	 */
 	this.initMenuHandlers = function() {
 		this.selectFeatureType.addEventListener('change', function(e){
 			this.featureType = e.target.value;
@@ -163,6 +175,9 @@ function CSMCanvas() {
 		}.bind(this));
 	}
 
+	/**
+	 * Draw the CSM canvas with the lines superimposed
+	 */
 	this.redrawCSMCanvas = function() {
 		if (!this.CSImage.complete) {
 			//Keep requesting redraws until the image has actually loaded
@@ -192,6 +207,10 @@ function CSMCanvas() {
 		}
 	}
 
+	/**
+	 * Find the nearest beat to where the song is playing and continue
+	 * the animation loop
+	 */
 	this.updateCSMCanvas = function() {
 		this.audio_widgets[this.playIdx].updateIdx();
 		this.redrawCSMCanvas();
