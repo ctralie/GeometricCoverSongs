@@ -145,6 +145,7 @@ function CSMCanvas() {
 		}.bind(this));
 
 		this.fileInput.addEventListener('change', function(e) {
+			this.pauseAudio();
 			var file = fileInput.files[0];
 			var reader = new FileReader();
 			reader.onload = function(e) {
@@ -154,6 +155,7 @@ function CSMCanvas() {
 					new AudioObject(2, Results.beats2, Results.song2name, Results.file2)
 				];
 				this.FeatureCSMs = Results.FeatureCSMs;
+				this.pauseAudio();
 	
 				//Remove all feature types from the last time if they exit;
 				for (var i = this.selectFeatureType.options.length - 1; i >= 0; i--) {
@@ -171,6 +173,8 @@ function CSMCanvas() {
 				this.updateSelectedImage();
 				this.progressBar.changeToReady();
 			}.bind(this)
+			this.progressBar.loading = true;
+			this.progressBar.changeLoad();
 			reader.readAsText(file);
 		}.bind(this));
 	}
