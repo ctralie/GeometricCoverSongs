@@ -33,7 +33,20 @@ The file *SongComparator.py* is a quickstart for running the pipeline on a pair 
 
 
 ## Quick Comparison of Two Songs with GUI
-The file *CSMViewer/CrossSimilarityExtractor.py* can be used to compare two songs and view their alignment using different feature sets in a GUI.  You can change the path to songs you want to compare and tweak parameters in the __main__ function.   Once you have done that, run *CrossSimilarityExtractor.py*, and the script will save a .json file that you can open in *CSMViewer/CrossSimilarityGUI.html* (or at http://www.covers1000.net/demo.html).  When you hit "play" in this GUI, you can jump back and forth between two songs by left clicking and right clicking on different pixels on the cross-similarity matrix.  You can try this with different feature sets to see which features pick up on which types of musical expressions more effectively (e.g. Chroma will work well for songs that are melodic, but not for hip hop songs, and similarity network fusion (SNF) will usually work better than all of them individually).
+The file *CSMViewer/CrossSimilarityExtractor.py* can be used to compare two songs and view their alignment using different feature sets in a GUI.  For example, the following run will compare a song called "MJBad.mp3" to a file called "AAFBad.mp3" and save the result in "SmoothCriminal.json," using the artist names "Michael Jackson" and "Alien Ant Farm"
+
+
+~~~~~ bash
+python CrossSimilarityExtractor.py --filename1 MJBad.mp3 --filename2 AAFBad.mp3 --jsonfilename SmoothCriminal.json --artist1 "Michael Jackson" --artist2 "Alien Ant Farm"
+~~~~~
+
+For a full list of options, please type
+~~~~~ bash
+python CrossSimilarityExtractor.py --help
+~~~~~
+
+
+   Once you have run this script, you can open the generated JSON file in *CSMViewer/CrossSimilarityGUI.html* (or at http://www.covers1000.net/demo.html).  When you hit "play" in this GUI, you can jump back and forth between two songs by left clicking and right clicking on different pixels on the cross-similarity matrix.  You can try this with different feature sets to see which features pick up on which types of musical expressions more effectively (e.g. Chroma will work well for songs that are melodic, but not for hip hop songs, and similarity network fusion (SNF) will usually work better than all of them individually).
 
 ## [Covers80] Dataset
 
