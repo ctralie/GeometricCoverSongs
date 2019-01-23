@@ -30,6 +30,34 @@ function CSMCanvas() {
 	this.dimsUpdated = false;
 
 	/**
+	 * Update the audio, CSM images, and scores after loading in a new dataset
+	 */
+	this.updateData = function(data) {
+		this.pauseAudio();
+		this.audio_widgets = [
+			new AudioObject(1, data.beats1, data.song1name, data.file1),
+			new AudioObject(2, data.beats2, data.song2name, data.file2)
+		];
+		this.FeatureCSMs = data.FeatureCSMs;
+
+		//Remove all feature types from the last time if they exit;
+		for (var i = this.selectFeatureType.options.length - 1; i >= 0; i--) {
+			this.selectFeatureType.remove(i);
+		}
+
+		for (val in data.FeatureCSMs) {
+			var option = document.createElement('option');
+			option.text = val;
+			this.selectFeatureType.add(option, val);
+			this.featureType = val;
+		}
+		this.featureType = this.selectFeatureType.value; //Display the currently selected feature
+		this.imageType = "CSM";
+		this.updateSelectedImage();
+		this.progressBar.changeToReady();
+	}
+
+	/**
 	 * Update the CSM image to the currently selected feature type
 	 * and display type
 	 */
@@ -148,29 +176,8 @@ function CSMCanvas() {
 			var file = fileInput.files[0];
 			var reader = new FileReader();
 			reader.onload = function(e) {
-				var Results = JSON.parse(reader.result);
-				this.audio_widgets = [
-					new AudioObject(1, Results.beats1, Results.song1name, Results.file1),
-					new AudioObject(2, Results.beats2, Results.song2name, Results.file2)
-				];
-				this.FeatureCSMs = Results.FeatureCSMs;
-				this.pauseAudio();
-	
-				//Remove all feature types from the last time if they exit;
-				for (var i = this.selectFeatureType.options.length - 1; i >= 0; i--) {
-					this.selectFeatureType.remove(i);
-				}
-	
-				for (val in Results.FeatureCSMs) {
-					var option = document.createElement('option');
-					option.text = val;
-					this.selectFeatureType.add(option, val);
-					this.featureType = val;
-				}
-				this.featureType = this.selectFeatureType.value; //Display the currently selected feature
-				this.imageType = "CSM";
-				this.updateSelectedImage();
-				this.progressBar.changeToReady();
+				var data = JSON.parse(reader.result);
+				this.updateData(data);
 			}.bind(this)
 			this.progressBar.loading = true;
 			this.progressBar.changeLoad();
