@@ -13,6 +13,7 @@ function AudioObject(songidx, bts, name, src) {
 	this.name = name;
 	this.widget.src = src; //Initialize audio
 	this.btidx = 0; //Keeps track of which beat we're on in this song
+	this.songnameTxt = document.getElementById("songname");
     
     /**
      * Update the index of the row/column to be the closest time
@@ -36,6 +37,7 @@ function AudioObject(songidx, bts, name, src) {
 	/** Play the audio associated to this widget */
 	this.play = function() {
 		this.widget.play();
+		this.songnameTxt.innerHTML = this.name;
 	}
 
 	/** Pause the audio associated to this widget */

@@ -12,7 +12,6 @@ function CSMCanvas() {
 	this.CSImage = new Image;
 	this.canvas = document.getElementById('CrossSimilarityCanvas');
 	this.scoreTxt = document.getElementById("score");
-	this.songnameTxt = document.getElementById("songname");
 	this.csmctx = this.canvas.getContext('2d');
 	this.fileInput = document.getElementById('fileInput');
 	this.progressBar = new ProgressBar();
