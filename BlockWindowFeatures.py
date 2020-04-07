@@ -121,7 +121,7 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
     XMFCC = np.array([])
     if usingMFCC:
         if XMFCCParam.size == 0:
-            from pyMIRBasic.MFCC import getMFCCsLibrosa
+            from MFCC import getMFCCsLibrosa
             XMFCC = getMFCCsLibrosa(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)
             #XMFCC = getMFCCsLowMem(XAudio, Fs, winSize, hopSize, lifterexp = lifterexp, NMFCC = NMFCC)['XMFCC']
         else:
@@ -248,7 +248,7 @@ def getBlockWindowFeatures(args, XMFCCParam = np.array([]), XChromaParam = np.ar
             print("")
             BlockFeatures['ChromasFTM2D'] = np.zeros((NChromaBlocks, ChromasPerBlock*NChromaBins))
         if XChromaParam.size == 0:
-            from pyMIRBasic.Chroma import getHPCPEssentia
+            from Chroma import getHPCPEssentia
             #XChroma = getCensFeatures(XAudio, Fs, hopSize)
             tic = time.time()
             XChroma = getHPCPEssentia(XAudio, Fs, hopSize*4, hopSize, NChromaBins = NChromaBins)

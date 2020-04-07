@@ -7,7 +7,8 @@ sys.path.append("../SequenceAlignment")
 import os
 import glob
 import scipy.io as sio
-import scipy.misc
+import skimage
+import skimage.io
 import time
 import matplotlib.pyplot as plt
 from CSMSSMTools import *
@@ -29,7 +30,8 @@ def getBase64PNGImage(D, cmapstr):
     c = plt.get_cmap(cmapstr)
     D = np.round(255.0*D/np.max(D))
     C = c(np.array(D, dtype=np.int32))
-    scipy.misc.imsave("temp.png", C)
+    C = np.array(np.round(C*255), dtype=np.uint8)
+    skimage.io.imsave("temp.png", C)
     b = getBase64File("temp.png")
     os.remove("temp.png")
     return b
