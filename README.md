@@ -13,11 +13,9 @@ Once you have the dependencies installed, you can checkout the code
 ~~~~~ bash
 git clone https://github.com/ctralie/GeometricCoverSongs.git
 cd GeometricCoverSongs
-git submodule update --init
-git submodule update --remote
 ~~~~~
 
-If this worked properly, you should see a subdirectory pyMIRBasic populated with various Python files.  You will also need to compile the C files used for Smith Waterman sequence alignment
+You will also need to compile the C files used for Smith Waterman sequence alignment
 
 ~~~~~ bash
 cd SequenceAlignment
