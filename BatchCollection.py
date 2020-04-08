@@ -8,10 +8,10 @@ import numpy as np
 import scipy.io as sio
 import os
 from BlockWindowFeatures import *
-from pyMIRBasic.Chroma import *
-from pyMIRBasic.MFCC import *
-from pyMIRBasic.Onsets import *
-from pyMIRBasic.AudioIO import *
+from Chroma import *
+from MFCC import *
+from Onsets import *
+from AudioIO import *
 from EvalStatistics import *
 import SequenceAlignment._SequenceAlignment as SAC
 from sys import stdout

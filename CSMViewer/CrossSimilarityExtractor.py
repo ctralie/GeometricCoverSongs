@@ -13,8 +13,8 @@ import time
 import matplotlib.pyplot as plt
 from CSMSSMTools import *
 from BlockWindowFeatures import *
-from pyMIRBasic.Onsets import *
-from pyMIRBasic.AudioIO import *
+from Onsets import *
+from AudioIO import *
 import json
 import argparse
 import base64

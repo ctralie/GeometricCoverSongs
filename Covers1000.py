@@ -29,10 +29,10 @@ def getAudioFeatures(hopSize, filename, mfccfilename, censfilename, hpcpfilename
         with dynamic programming, as well as a single madmom
         estimate, are computed)
     """
-    from pyMIRBasic.Chroma import getCensFeatures, getHPCPEssentia
-    from pyMIRBasic.MFCC import getMFCCsLibrosa
-    from pyMIRBasic.Onsets import getBeats
-    from pyMIRBasic.AudioIO import getAudioLibrosa
+    from Chroma import getCensFeatures, getHPCPEssentia
+    from MFCC import getMFCCsLibrosa
+    from Onsets import getBeats
+    from AudioIO import getAudioLibrosa
     if os.path.exists(mfccfilename) and os.path.exists(censfilename) and os.path.exists(hpcpfilename) and os.path.exists(beatsfilename):
         print("Skipping %s"%filename)
         return
