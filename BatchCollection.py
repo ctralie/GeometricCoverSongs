@@ -58,9 +58,10 @@ def compareBatchBlock(args):
     for idx in allidxs:
         filename = getMatFilename(scratchDir, allFiles[idx])
         AllFeatures[idx] = sio.loadmat(filename)
-        for key in AllFeatures[idx].keys():
-            if AllFeatures[idx][key].size == 1:
-                AllFeatures[idx][key] = AllFeatures[idx][key].flatten()[0]
+        for key, val in AllFeatures[idx].items():
+            if type(val) is np.ndarray:
+                if val.size == 1:
+                    AllFeatures[idx][key] = val.flatten()[0]
     tocfeatures = time.time()
     print("Elapsed Time Loading Features: ", tocfeatures-ticfeatures)
     stdout.flush()
