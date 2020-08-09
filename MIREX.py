@@ -7,21 +7,24 @@ import scipy.io as sio
 from multiprocessing import Pool as PPool
 from BatchCollection import *
 from sys import exit, argv
+from configparser import ConfigParser
+from ast import literal_eval
 import logging as logger
 logger.basicConfig(level=logger.DEBUG)
 
 if __name__ == '__main__':
-    if len(argv) < 5:
-        print("Usage: python doMIREX.py <collection_list_file> <query_list_file> <working_directory> <output_file> <num threads in parallel pool>")
-        exit(0)
+    config = ConfigParser().read('config.ini')
+
     #Open collection and query lists
     logger.info("Reading Collections File")
-    fin = open(argv[1], 'r')
+    collections_file = config.get('PARAMETERS','collectionFilePath')
+    fin = open(collections_file, 'r')
     collectionFiles = [f.strip() for f in fin.readlines()]
     fin.close()
 
     logger.info("Reading Query File")
-    fin = open(argv[2], 'r')
+    query_file = config.get('PARAMETERS', 'queryFilePath')
+    fin = open(query_file, 'r')
     queryFiles = [f.strip() for f in fin.readlines()]
     fin.close()
 
@@ -41,23 +44,38 @@ if __name__ == '__main__':
 
     logger.info("There are %i music items in Collections file"%len(allFiles))
 
-    scratchDir = argv[3]
-    filenameOut = argv[4]
+    scratchDir = config.get('PARAMETERS', 'scratchDirectoryName')
+    filenameOut = config.get('PARAMETERS', 'outputFileName')
 
     #Define parameters
-    hopSize = 512
-    Kappa = 0.1
-    TempoLevels = [60, 120, 180]
-    #TempoLevels = [0] #Madmom only
-    FeatureParams = {'MFCCBeatsPerBlock':20, 'DPixels':50, 'MFCCSamplesPerBlock':50, 'ChromaBeatsPerBlock':20, 'ChromasPerBlock':40, 'NMFCC':20, 'lifterexp':0.6}
+    hopSize = int(config.get('HYPERPARAMETERS', 'hopSize'))
+    Kappa = int(config.get('HYPERPARAMETERS', 'Kappa'))
+    TempoLevels = literal_eval(config.get('HYPERPARAMETERS', 'TempoLevels')) #TempoLevels = [0] #Madmom only
+    logger.info('TempoLevels: {} Length {}'.format(TempoLevels, len(TempoLevels)))
 
-    CSMTypes = {'MFCCs':'Euclidean', 'SSMs':'Euclidean', 'Chromas':'CosineOTI'}
+    MFCCBeatsPerBlock = int(config.get('HYPERPARAMETERS','MFCCBeatsPerBlock'))
+    DPixels = int(config.get('HYPERPARAMETERS', 'DPixels'))
+    MFCCSamplesPerBlock = int(config.get('HYPERPARAMETERS', 'MFCCSamplesPerBlock'))
+    ChromaBeatsPerBlock = int(config.get('HYPERPARAMETERS', 'ChromaBeatsPerBlock'))
+    ChromasPerBlock = int(config.get('HYPERPARAMETERS', 'ChromasPerBlock'))
+    NMFCC = int(config.get('HYPERPARAMETERS', 'NMFCC'))
+    lifterexp = float(config.get('HYPERPARAMETERS', 'lifterexp'))
+
+    FeatureParams = {'MFCCBeatsPerBlock':MFCCBeatsPerBlock,
+                     'DPixels':DPixels,
+                     'MFCCSamplesPerBlock':MFCCSamplesPerBlock,
+                     'ChromaBeatsPerBlock':ChromaBeatsPerBlock,
+                     'ChromasPerBlock':ChromasPerBlock,
+                     'NMFCC':NMFCC,
+                     'lifterexp':lifterexp}
+
+    CSMTypes = {'MFCCs':'Euclidean',
+                'SSMs':'Euclidean',
+                'Chromas':'CosineOTI'}
 
     #Setup parallel pool
-    NThreads = 8
+    NThreads = int(config.get('PARAMETERS', 'numberOfThreads'))
     logger.info("Process will run with {} Threads".format(NThreads))
-    if len(argv) > 5:
-        NThreads = int(argv[5])
     parpool = PPool(NThreads)
 
     #Precompute beat intervals, MFCC, and HPCP Features for each song
@@ -74,17 +92,18 @@ if __name__ == '__main__':
     #Process blocks of similarity at a time
     logger.info("Perform Similarity Analysis")
     N = len(allFiles)
-    NPerBlock = 20
+    NPerBlock = int(config.get('PARAMETERS', 'numberPerBlock'))
     ranges = getBatchBlockRanges(N, NPerBlock)
-    logger.debug('Ranges {}'.format(ranges))
     args = zip(ranges, [Kappa]*len(ranges), [CSMTypes]*len(ranges), [allFiles]*len(ranges), [scratchDir]*len(ranges))
     res = parpool.map(compareBatchBlock, args)
     Ds = assembleBatchBlocks(list(CSMTypes) + ['SNF'], res, ranges, N)
 
     #Perform late fusion
     logger.info("Performing Late Fusion")
+    numberOfNearestNeighbor = int(config.get('HYPERPARAMETERS', 'numberOfNearestNeighbor'))
+    numberOfIter = int(config.get('HYPERPARAMETERS', 'numberOfIter'))
     Scores = [1.0/(1.0+Ds[F]) for F in Ds.keys()]
-    Ds['Late'] = doSimilarityFusion(Scores, 20, 20, 1)
+    Ds['Late'] = doSimilarityFusion(Scores, numberOfNearestNeighbor, numberOfIter, 1)
     D = np.exp(-Ds['Late']) #Turn similarity score into a distance
 
     #Save full distance matrix in case there's a problem
