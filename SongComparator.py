@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from CSMSSMTools import *
 from BlockWindowFeatures import *
-from pyMIRBasic.Onsets import *
+from Onsets import *
 import subprocess
 
 def plotSongLabels(song1, song2, dim1 = 1, dim2 = 3):
@@ -91,8 +91,8 @@ def compareTwoFeatureSets(Results, Features1, O1, Features2, O2, CSMTypes, Kappa
     sio.savemat("%s.mat"%fileprefix, Results)
 
 def compareTwoSongs(filename1, TempoBias1, filename2, TempoBias2, hopSize, FeatureParams, CSMTypes, Kappa, fileprefix, song1name = 'Song 1', song2name = 'Song 2'):
-    from pyMIRBasic.AudioIO import getAudioLibrosa
-    from pyMIRBasic.Onsets import getBeats
+    from AudioIO import getAudioLibrosa
+    from Onsets import getBeats
     print("Getting features for %s..."%filename1)
     (XAudio, Fs) = getAudioLibrosa(filename1)
     (tempo, beats) = getBeats(XAudio, Fs, TempoBias1, hopSize, filename2)
